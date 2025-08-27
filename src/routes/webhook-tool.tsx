@@ -52,6 +52,9 @@ function WebhookTool() {
   const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
   const [showBulkActions, setShowBulkActions] = useState(false)
   const [statusFilter, setStatusFilter] = useState<string>('all')
+  const [showToast, setShowToast] = useState(false)
+  const [toastMessage, setToastMessage] = useState('')
+  const [toastType, setToastType] = useState<'success' | 'error'>('success')
 
   // Load existing jobs from localStorage on component mount
   useEffect(() => {
@@ -167,11 +170,15 @@ function WebhookTool() {
           })
         } else {
           console.error('Failed to fetch jobs from API:', response.status, response.statusText)
-          setJobsError(`Failed to fetch jobs from API: ${response.status}`)
+          const errorMessage = `Failed to fetch jobs from API: ${response.status}`
+          setJobsError(errorMessage)
+          showToastNotification(errorMessage, 'error')
         }
       } catch (error) {
         console.error('Error loading jobs from API:', error)
-        setJobsError(`Error loading jobs from API: ${error instanceof Error ? error.message : 'Unknown error'}`)
+        const errorMessage = `Error loading jobs from API: ${error instanceof Error ? error.message : 'Unknown error'}`
+        setJobsError(errorMessage)
+        showToastNotification(errorMessage, 'error')
       } finally {
         setIsLoadingJobs(false)
       }
@@ -273,6 +280,7 @@ function WebhookTool() {
         })
       } else {
         console.error('Failed to fetch jobs:', response.status, response.statusText)
+        showToastNotification(`Failed to fetch jobs: ${response.status}`, 'error')
       }
     } catch (error) {
       console.error('Failed to update job statuses:', error)
@@ -281,6 +289,9 @@ function WebhookTool() {
       if (error instanceof TypeError && error.message.includes('Failed to fetch')) {
         console.warn('CORS error detected. The receipt printer may not have CORS enabled.')
         console.warn('Consider enabling CORS on the receipt printer or using a proxy.')
+        showToastNotification('CORS error: Unable to connect to receipt printer', 'error')
+      } else {
+        showToastNotification('Failed to update job statuses', 'error')
       }
     }
   }, [])
@@ -316,9 +327,14 @@ function WebhookTool() {
       }
 
       const data = await response.text()
-      setResult(data)
+      // Show toast notification instead of setting result
+      showToastNotification(`Job ${status} successfully!`, 'success')
+      // Clear the input box after successful submission
+      setUrl('')
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
+      const errorMessage = err instanceof Error ? err.message : 'An error occurred'
+      setError(errorMessage)
+      showToastNotification(errorMessage, 'error')
     } finally {
       setIsLoading(false)
     }
@@ -388,14 +404,17 @@ function WebhookTool() {
       }
 
       setUrl('')
-      setResult('Job submitted successfully! It will appear in the job history below.')
+      // Show toast notification instead of setting result
+      showToastNotification('Job submitted successfully! It will appear in the job history below.', 'success')
       
       // Trigger an immediate status update to get the latest data
       setTimeout(() => {
         updateJobStatuses()
       }, 2000) // Wait 2 seconds for n8n to process
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to submit print job to n8n')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit print job to n8n'
+      setError(errorMessage)
+      showToastNotification(errorMessage, 'error')
       
       // Remove the failed job from state
       setPrintJobs(prev => prev.filter(job => job.id !== Date.now().toString()))
@@ -442,14 +461,16 @@ function WebhookTool() {
            : j
        ))
        
-       setResult(`Job resubmitted to n8n successfully!`)
+       showToastNotification('Job resubmitted to n8n successfully!', 'success')
       
       // Trigger an immediate status update
       setTimeout(() => {
         updateJobStatuses()
       }, 2000)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resubmit to n8n')
+      const errorMessage = err instanceof Error ? err.message : 'Failed to resubmit to n8n'
+      setError(errorMessage)
+      showToastNotification(errorMessage, 'error')
     }
   }
 
@@ -514,7 +535,7 @@ function WebhookTool() {
             : j
         ))
         
-        setResult(`Resubmitted ${job.title} at ${job.company} to receipt printer successfully!`)
+        showToastNotification(`Resubmitted ${job.title} at ${job.company} to receipt printer successfully!`, 'success')
       } else {
         // Update resubmission status to error
         setPrintJobs(prev => prev.map(j => 
@@ -530,7 +551,9 @@ function WebhookTool() {
             : j
         ))
         
-        setError('Failed to resubmit to receipt printer. Please try again.')
+        const errorMessage = 'Failed to resubmit to receipt printer. Please try again.'
+        setError(errorMessage)
+        showToastNotification(errorMessage, 'error')
       }
     } catch (error) {
       console.error('Error resubmitting to receipt printer:', error)
@@ -549,7 +572,9 @@ function WebhookTool() {
           : j
       ))
       
-      setError('An error occurred while resubmitting to receipt printer.')
+      const errorMessage = 'An error occurred while resubmitting to receipt printer.'
+      setError(errorMessage)
+      showToastNotification(errorMessage, 'error')
     }
   }
 
@@ -591,15 +616,19 @@ function WebhookTool() {
         console.log(result.message) // "All X jobs cleared"
         // Clear all jobs from local state
         setPrintJobs([])
-        setResult(`All jobs cleared successfully: ${result.message}`)
+        showToastNotification(`All jobs cleared successfully: ${result.message}`, 'success')
         setShowClearConfirmation(false) // Hide confirmation dialog
       } else {
         console.error('Failed to clear jobs from backend:', response.status, response.statusText)
-        setError('Failed to clear jobs from backend')
+        const errorMessage = 'Failed to clear jobs from backend'
+        setError(errorMessage)
+        showToastNotification(errorMessage, 'error')
       }
     } catch (error) {
       console.error('Error clearing jobs:', error)
-      setError('Error clearing jobs from backend')
+      const errorMessage = 'Error clearing jobs from backend'
+      setError(errorMessage)
+      showToastNotification(errorMessage, 'error')
     }
   }
 
@@ -631,9 +660,9 @@ function WebhookTool() {
       
       // Show result message
       if (errorCount === 0) {
-        setResult(`Successfully removed ${successCount} jobs`)
+        showToastNotification(`Successfully removed ${successCount} jobs`, 'success')
       } else {
-        setResult(`Removed ${successCount} jobs successfully, ${errorCount} failed`)
+        showToastNotification(`Removed ${successCount} jobs successfully, ${errorCount} failed`, 'success')
       }
       
       // Clear selection and hide bulk actions
@@ -641,7 +670,9 @@ function WebhookTool() {
       setShowBulkActions(false)
     } catch (error) {
       console.error('Error removing bulk jobs:', error)
-      setError('Error removing selected jobs')
+      const errorMessage = 'Error removing selected jobs'
+      setError(errorMessage)
+      showToastNotification(errorMessage, 'error')
     }
   }
 
@@ -655,6 +686,18 @@ function WebhookTool() {
     if (statusFilter === 'researching') return job.status === 'Researching'
     return true
   })
+
+  // Toast notification function
+  const showToastNotification = (message: string, type: 'success' | 'error' = 'success') => {
+    setToastMessage(message)
+    setToastType(type)
+    setShowToast(true)
+    
+    // Auto-hide toast after 5 seconds
+    setTimeout(() => {
+      setShowToast(false)
+    }, 5000)
+  }
 
   const importJobsFromJSON = (jsonData: string) => {
     try {
@@ -686,18 +729,19 @@ function WebhookTool() {
         const newJobs = importedJobs.filter(job => !existingUrls.has(job.url))
         
         if (newJobs.length === 0) {
-          setResult('No new jobs found in the JSON data. All jobs already exist in the history.')
+          showToastNotification('No new jobs found in the JSON data. All jobs already exist in the history.', 'success')
           return prevJobs
         }
         
-        setResult(`Successfully imported ${newJobs.length} new jobs from JSON data.`)
+        showToastNotification(`Successfully imported ${newJobs.length} new jobs from JSON data.`, 'success')
         return [...newJobs, ...prevJobs]
       })
       
       setError(null)
     } catch (err) {
-      setError('Invalid JSON format. Please check your data and try again.')
-      setResult(null)
+      const errorMessage = 'Invalid JSON format. Please check your data and try again.'
+      setError(errorMessage)
+      showToastNotification(errorMessage, 'error')
     }
   }
 
@@ -754,6 +798,50 @@ function WebhookTool() {
             </button>
           </div>
         </div>
+
+        {/* Toast Notification */}
+        {showToast && (
+          <div className={`fixed top-6 right-6 z-50 max-w-md transform transition-all duration-300 ease-in-out ${
+            showToast ? 'translate-x-0 opacity-100' : 'translate-x-full opacity-0'
+          }`}>
+            <div className={`rounded-lg shadow-lg p-4 ${
+              toastType === 'success' 
+                ? 'bg-green-50 border border-green-200 text-green-800' 
+                : 'bg-red-50 border border-red-200 text-red-800'
+            }`}>
+              <div className="flex items-start">
+                <div className="flex-shrink-0">
+                  {toastType === 'success' ? (
+                    <svg className="w-5 h-5 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                    </svg>
+                  ) : (
+                    <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  )}
+                </div>
+                <div className="ml-3 flex-1">
+                  <p className="text-sm font-medium">{toastMessage}</p>
+                </div>
+                <div className="ml-4 flex-shrink-0">
+                  <button
+                    onClick={() => setShowToast(false)}
+                    className={`inline-flex rounded-md p-1.5 ${
+                      toastType === 'success' 
+                        ? 'text-green-400 hover:bg-green-100' 
+                        : 'text-red-400 hover:bg-red-100'
+                    }`}
+                  >
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Main Card */}
         <div className="bg-white rounded-2xl shadow-xl border border-gray-200 p-8">
@@ -842,28 +930,7 @@ function WebhookTool() {
                 </div>
               )}
 
-              {/* Result Display */}
-              {result && (
-                <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6">
-                  <div className="flex items-start gap-4">
-                    <div className="flex-shrink-0">
-                      <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                        </svg>
-                      </div>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-lg font-semibold text-green-800 mb-3">
-                        Job {jobStatus} Successfully
-                      </h3>
-                      <div className="bg-white p-4 rounded-lg border border-green-200">
-                        <pre className="whitespace-pre-wrap text-sm text-gray-900 font-mono leading-relaxed">{result}</pre>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
+
 
 
 
@@ -971,11 +1038,15 @@ function WebhookTool() {
                               
                               setIsLoadingJobs(false)
                             } else {
-                              setJobsError(`Failed to fetch jobs: ${response.status}`)
+                              const errorMessage = `Failed to fetch jobs: ${response.status}`
+                              setJobsError(errorMessage)
+                              showToastNotification(errorMessage, 'error')
                               setIsLoadingJobs(false)
                             }
                           } catch (error) {
-                            setJobsError(`Error refreshing jobs: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                            const errorMessage = `Error refreshing jobs: ${error instanceof Error ? error.message : 'Unknown error'}`
+                            setJobsError(errorMessage)
+                            showToastNotification(errorMessage, 'error')
                             setIsLoadingJobs(false)
                           }
                         }
@@ -1451,28 +1522,7 @@ function WebhookTool() {
             </div>
           )}
 
-          {/* Result Display for Print Queue and Import Jobs */}
-          {(activeTab === 'print-queue' || activeTab === 'import-jobs') && result && (
-            <div className="bg-green-50 border-2 border-green-200 rounded-xl p-6 mt-8">
-              <div className="flex items-start gap-4">
-                <div className="flex-shrink-0">
-                  <div className="w-10 h-10 bg-green-100 rounded-full flex items-center justify-center">
-                    <svg className="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                    </svg>
-                  </div>
-                </div>
-                <div className="flex-1">
-                  <h3 className="text-lg font-semibold text-green-800 mb-3">
-                    {activeTab === 'print-queue' ? 'Print Job Submitted Successfully' : 'Operation Completed Successfully'}
-                  </h3>
-                  <div className="bg-white p-4 rounded-lg border border-green-200">
-                    <pre className="whitespace-pre-wrap text-sm text-gray-900 font-mono leading-relaxed">{result}</pre>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+
         </div>
       </div>
     </div>
