@@ -45,13 +45,20 @@ function WebhookTool() {
   const [isSubmittingPrint, setIsSubmittingPrint] = useState(false)
   const [activeTab, setActiveTab] = useState<'job-tracking' | 'print-queue' | 'import-jobs'>('job-tracking')
   const [corsStatus, setCorsStatus] = useState<'ok' | 'cors-error' | null>(null)
+  const [isLoadingJobs, setIsLoadingJobs] = useState(true)
+  const [jobsError, setJobsError] = useState<string | null>(null)
 
   // Load existing jobs from localStorage on component mount
   useEffect(() => {
+    console.log('Component mounted, loading jobs...')
+    setIsLoadingJobs(true)
+    setJobsError(null)
+    
     const savedJobs = localStorage.getItem('printJobs')
     if (savedJobs) {
       try {
         const parsed = JSON.parse(savedJobs)
+        console.log('Found saved jobs in localStorage:', parsed)
         // Convert string dates back to Date objects
         const jobsWithDates = parsed.map((job: any) => ({
           ...job,
@@ -63,13 +70,111 @@ function WebhookTool() {
           }))
         }))
         setPrintJobs(jobsWithDates)
+        console.log('Loaded jobs from localStorage:', jobsWithDates)
       } catch (e) {
         console.error('Failed to parse saved print jobs:', e)
+        setJobsError('Failed to load saved jobs from localStorage')
+      }
+    } else {
+      console.log('No saved jobs found in localStorage')
+    }
+  }, [])
+
+  // Load jobs from receipt printer API after component mounts
+  useEffect(() => {
+    console.log('Loading jobs from receipt printer API...')
+    const loadJobsFromAPI = async () => {
+      try {
+        const response = await fetch('http://receipt-printer.local:8000/jobs')
+        if (response.ok) {
+          const jobsData = await response.json()
+          console.log('Received jobs from API:', jobsData)
+          
+          // The API returns an object with job IDs as keys, not an array
+          // Convert the object to an array format for easier processing
+          const jobsArray = Object.entries(jobsData).map(([jobId, jobInfo]: [string, any]) => ({
+            id: jobId,
+            url: jobInfo.data?.url || '',
+            status: jobInfo.data?.status || 'Researching',
+            submittedAt: new Date(jobInfo.data?.date || Date.now()),
+            lastUpdated: new Date(),
+            title: jobInfo.data?.title,
+            company: jobInfo.data?.company,
+            location: jobInfo.data?.location,
+            salary: jobInfo.data?.salary,
+            description: jobInfo.data?.description,
+            date: jobInfo.data?.date,
+            rating: jobInfo.data?.rating,
+            fit_reasons: jobInfo.data?.fit_reasons,
+            error: jobInfo.error,
+            jobStatus: jobInfo.status === 'done' ? 'success' : jobInfo.status, // Map 'done' to 'success'
+            resubmissions: [] // Initialize empty resubmissions array
+          }))
+          
+          console.log('Converted jobs array:', jobsArray)
+          
+          setPrintJobs(prevJobs => {
+            console.log('Previous jobs from state:', prevJobs)
+            
+            // Create a map of existing jobs by URL for easy lookup
+            const existingJobsMap = new Map(prevJobs.map(job => [job.url, job]))
+            
+            // Process each job from the receipt printer API
+            const updatedJobs = jobsArray.map((remoteJob) => {
+              const existingJob = existingJobsMap.get(remoteJob.url)
+              
+              if (existingJob) {
+                // Update existing job with data from receipt printer
+                return {
+                  ...existingJob,
+                  // Update with the full job data from receipt printer
+                  title: remoteJob.title || existingJob.title,
+                  company: remoteJob.company || existingJob.company,
+                  location: remoteJob.location || existingJob.location,
+                  salary: remoteJob.salary || existingJob.salary,
+                  description: remoteJob.description || existingJob.description,
+                  date: remoteJob.date || existingJob.date,
+                  rating: remoteJob.rating || existingJob.rating,
+                  fit_reasons: remoteJob.fit_reasons || existingJob.fit_reasons,
+                  lastUpdated: new Date(),
+                  error: remoteJob.error,
+                  jobStatus: remoteJob.jobStatus,
+                  // Keep existing resubmissions
+                  resubmissions: existingJob.resubmissions || []
+                }
+              } else {
+                // This is a new job from the receipt printer that we don't have locally
+                return {
+                  ...remoteJob,
+                  resubmissions: [] // Initialize empty resubmissions array
+                }
+              }
+            })
+            
+            // Add any local jobs that aren't in the receipt printer API yet
+            const localJobsNotInAPI = prevJobs.filter(job => 
+              !jobsArray.some((remoteJob) => remoteJob.url === job.url)
+            )
+            
+            const finalJobs = [...updatedJobs, ...localJobsNotInAPI]
+            console.log('Final merged jobs:', finalJobs)
+            return finalJobs
+          })
+        } else {
+          console.error('Failed to fetch jobs from API:', response.status, response.statusText)
+          setJobsError(`Failed to fetch jobs from API: ${response.status}`)
+        }
+      } catch (error) {
+        console.error('Error loading jobs from API:', error)
+        setJobsError(`Error loading jobs from API: ${error instanceof Error ? error.message : 'Unknown error'}`)
+      } finally {
+        setIsLoadingJobs(false)
       }
     }
     
-    // Load jobs from receipt printer API on mount
-    updateJobStatuses()
+    // Load jobs after a short delay to ensure component is fully mounted
+    const timer = setTimeout(loadJobsFromAPI, 1000)
+    return () => clearTimeout(timer)
   }, [])
 
   // Save jobs to localStorage whenever they change
@@ -278,7 +383,7 @@ function WebhookTool() {
       }
 
       setUrl('')
-      setResult('Print job submitted to n8n successfully! The receipt printer will process it automatically.')
+      setResult('Job submitted successfully! It will appear in the job history below.')
       
       // Trigger an immediate status update to get the latest data
       setTimeout(() => {
@@ -513,10 +618,10 @@ function WebhookTool() {
             </svg>
           </div>
           <h1 className="text-4xl font-bold text-gray-900 mb-4">
-            Internal Tools Dashboard
+            Job Management Dashboard
           </h1>
           <p className="text-xl text-gray-700 max-w-2xl mx-auto">
-            Job tracking and print queue management in one place.
+            Track job applications and manage print queue submissions in one unified interface.
           </p>
         </div>
 
@@ -531,17 +636,7 @@ function WebhookTool() {
                   : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
               }`}
             >
-              Job Tracking
-            </button>
-            <button
-              onClick={() => setActiveTab('print-queue')}
-              className={`px-6 py-3 rounded-lg font-medium transition-all duration-200 ${
-                activeTab === 'print-queue'
-                  ? 'bg-blue-600 text-white shadow-lg'
-                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-              }`}
-            >
-              Print Queue
+              Job Management
             </button>
             <button
               onClick={() => setActiveTab('import-jobs')}
@@ -563,7 +658,7 @@ function WebhookTool() {
               {/* Job Tracking Content */}
               <div>
                 <label htmlFor="url" className="block text-lg font-semibold text-gray-900 mb-3">
-                  Enter Job URL to Process
+                  Enter Job URL to Track or Print
                 </label>
                 <div className="flex gap-4 mb-4">
                   <div className="flex-1 relative">
@@ -666,114 +761,139 @@ function WebhookTool() {
                 </div>
               )}
 
-              {/* Information Panel */}
-              <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-blue-900 mb-3">How It Works</h3>
-                    <div className="text-blue-800 space-y-2">
-                      <p>This tool processes job URLs through our secure webhook endpoint at <code className="bg-white px-2 py-1 rounded text-sm font-mono text-blue-900">core.bentheitguy.me</code></p>
-                      <ul className="list-disc list-inside space-y-1 ml-4">
-                        <li>Paste any job posting URL in the input field above</li>
-                        <li>Choose "Mark as Applied" for jobs you've already applied to</li>
-                        <li>Choose "Mark as Researching" for jobs you're still evaluating</li>
-                        <li>The webhook will receive the URL with a <code className="bg-white px-1 rounded text-xs font-mono">status</code> parameter</li>
-                        <li>View real-time results and any error messages</li>
-                        <li>All requests are authenticated and secure</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          ) : activeTab === 'print-queue' ? (
-            <div className="space-y-8">
-              {/* Print Queue Content */}
-              <div>
-                <label htmlFor="print-url" className="block text-lg font-semibold text-gray-900 mb-3">
-                  Enter URL to Print
-                </label>
-                <div className="flex gap-4 mb-4">
-                  <div className="flex-1 relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                      <svg className="h-5 w-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                      </svg>
-                    </div>
-                    <input
-                      type="url"
-                      id="print-url"
-                      value={url}
-                      onChange={(e) => setUrl(e.target.value)}
-                      onKeyPress={handleKeyPress}
-                      placeholder="https://example.com/document-to-print"
-                      className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white"
-                    />
-                  </div>
-                  <button
-                    onClick={submitPrintJob}
-                    disabled={isSubmittingPrint || !url.trim()}
-                    className="px-8 py-4 bg-purple-600 text-white text-lg font-semibold rounded-xl hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center gap-2"
-                  >
-                    {isSubmittingPrint ? (
-                      <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    ) : (
-                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                      </svg>
-                    )}
-                    Submit Print Job
-                  </button>
-                </div>
-              </div>
 
-              {/* Print Job History */}
-              <div>
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-lg font-semibold text-gray-900">Print Job History</h3>
+
+              {/* Unified Job History */}
+              <div className="mt-12">
+                <div className="flex items-center justify-between mb-6">
+                  <h3 className="text-2xl font-bold text-gray-900">Job History</h3>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => {
-                        updateJobStatuses()
+                        setIsLoadingJobs(true)
+                        setJobsError(null)
+                        const loadJobsFromAPI = async () => {
+                          try {
+                            const response = await fetch('http://receipt-printer.local:8000/jobs')
+                            if (response.ok) {
+                              const jobsData = await response.json()
+                              console.log('Manual refresh - received jobs from API:', jobsData)
+                              
+                              const jobsArray = Object.entries(jobsData).map(([jobId, jobInfo]: [string, any]) => ({
+                                id: jobId,
+                                url: jobInfo.data?.url || '',
+                                status: jobInfo.data?.status || 'Researching',
+                                submittedAt: new Date(jobInfo.data?.date || Date.now()),
+                                lastUpdated: new Date(),
+                                title: jobInfo.data?.title,
+                                company: jobInfo.data?.company,
+                                location: jobInfo.data?.location,
+                                salary: jobInfo.data?.salary,
+                                description: jobInfo.data?.description,
+                                date: jobInfo.data?.date,
+                                rating: jobInfo.data?.rating,
+                                fit_reasons: jobInfo.data?.fit_reasons,
+                                error: jobInfo.error,
+                                jobStatus: jobInfo.status === 'done' ? 'success' : jobInfo.status,
+                                resubmissions: []
+                              }))
+                              
+                              setPrintJobs(prevJobs => {
+                                const existingJobsMap = new Map(prevJobs.map(job => [job.url, job]))
+                                
+                                const updatedJobs = jobsArray.map((remoteJob) => {
+                                  const existingJob = existingJobsMap.get(remoteJob.url)
+                                  
+                                  if (existingJob) {
+                                    return {
+                                      ...existingJob,
+                                      title: remoteJob.title || existingJob.title,
+                                      company: remoteJob.company || existingJob.company,
+                                      location: remoteJob.location || existingJob.location,
+                                      salary: remoteJob.salary || existingJob.salary,
+                                      description: remoteJob.description || existingJob.description,
+                                      date: remoteJob.date || existingJob.date,
+                                      rating: remoteJob.rating || existingJob.rating,
+                                      fit_reasons: remoteJob.fit_reasons || existingJob.fit_reasons,
+                                      lastUpdated: new Date(),
+                                      error: remoteJob.error,
+                                      jobStatus: remoteJob.jobStatus,
+                                      resubmissions: existingJob.resubmissions || []
+                                    }
+                                  } else {
+                                    return remoteJob
+                                  }
+                                })
+                                
+                                const localJobsNotInAPI = prevJobs.filter(job => 
+                                  !jobsArray.some((remoteJob) => remoteJob.url === job.url)
+                                )
+                                
+                                return [...updatedJobs, ...localJobsNotInAPI]
+                              })
+                              
+                              setIsLoadingJobs(false)
+                            } else {
+                              setJobsError(`Failed to fetch jobs: ${response.status}`)
+                              setIsLoadingJobs(false)
+                            }
+                          } catch (error) {
+                            setJobsError(`Error refreshing jobs: ${error instanceof Error ? error.message : 'Unknown error'}`)
+                            setIsLoadingJobs(false)
+                          }
+                        }
+                        loadJobsFromAPI()
                       }}
                       className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors flex items-center gap-2"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                       </svg>
-                      Refresh
+                      Refresh Jobs
                     </button>
                   </div>
                 </div>
 
-                {printJobs.length === 0 ? (
+                {isLoadingJobs ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <div className="w-16 h-16 mx-auto mb-4 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin"></div>
+                    <p className="text-lg">Loading jobs...</p>
+                    <p className="text-sm">Fetching from localStorage and API</p>
+                  </div>
+                ) : jobsError ? (
+                  <div className="text-center py-12 text-red-500">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-red-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <p className="text-lg">Error loading jobs</p>
+                    <p className="text-sm text-red-400">{jobsError}</p>
+                    <button
+                      onClick={() => window.location.reload()}
+                      className="mt-4 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors"
+                    >
+                      Retry
+                    </button>
+                  </div>
+                ) : printJobs.length === 0 ? (
                   <div className="text-center py-12 text-gray-500">
                     <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
-                    <p className="text-lg">No print jobs yet</p>
+                    <p className="text-lg">No jobs yet</p>
                     <p className="text-sm">Submit a URL above to get started</p>
                   </div>
                 ) : (
-                  <div className="space-y-3">
+                  <div className="space-y-4">
                     {printJobs.map((job) => (
-                      <div key={job.id} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                        <div className="flex items-center justify-between">
+                      <div key={job.id} className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                        <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-3 mb-2">
-                              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                            <div className="flex items-center gap-3 mb-3">
+                              <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
                                 {job.status}
                               </span>
                               {job.jobStatus && (
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
                                   job.jobStatus === 'success' ? 'bg-green-100 text-green-800' :
                                   job.jobStatus === 'error' ? 'bg-red-100 text-red-800' :
                                   'bg-yellow-100 text-yellow-800'
@@ -783,31 +903,37 @@ function WebhookTool() {
                                    '⏳ Pending'}
                                 </span>
                               )}
-                              <span className="text-xs text-gray-500">
+                              <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
                                 ID: {job.id}
                               </span>
                             </div>
-                            <p className="text-sm text-gray-900 truncate">{job.url}</p>
+                            
+                            <p className="text-lg font-medium text-gray-900 mb-2">{job.url}</p>
+                            
                             {job.title && (
-                              <p className="text-sm font-medium text-gray-800 mt-1">
+                              <p className="text-base font-semibold text-gray-800 mb-1">
                                 {job.title} at {job.company}
                               </p>
                             )}
-                            <div className="flex items-center gap-4 mt-2 text-xs text-gray-500">
+                            
+                            <div className="flex items-center gap-6 mt-3 text-sm text-gray-500">
                               <span>Submitted: {job.submittedAt.toLocaleString()}</span>
                               <span>Updated: {job.lastUpdated.toLocaleString()}</span>
                             </div>
+                            
                             {job.error && (
-                              <p className="text-red-600 text-sm mt-1">Error: {job.error}</p>
+                              <p className="text-red-600 text-sm mt-3 p-3 bg-red-50 rounded-lg border border-red-200">
+                                <strong>Error:</strong> {job.error}
+                              </p>
                             )}
                             
                             {/* Resubmission History */}
                             {job.resubmissions && job.resubmissions.length > 0 && (
-                              <div className="mt-3 space-y-2">
-                                <p className="text-xs font-medium text-gray-700">Resubmission History:</p>
-                                <div className="space-y-1">
+                              <div className="mt-4 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                                <p className="text-sm font-medium text-gray-700 mb-3">Resubmission History:</p>
+                                <div className="space-y-2">
                                   {job.resubmissions.map((sub, index) => (
-                                    <div key={index} className="flex items-center gap-2 text-xs">
+                                    <div key={index} className="flex items-center gap-3 text-sm">
                                       <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
                                         sub.status === 'success' ? 'bg-green-100 text-green-800' :
                                         sub.status === 'error' ? 'bg-red-100 text-red-800' :
@@ -827,65 +953,75 @@ function WebhookTool() {
                               </div>
                             )}
                           </div>
-                          <div className="flex items-center gap-2 ml-4">
+                          
+                          <div className="flex flex-col gap-2 ml-6">
                             <button
                               onClick={() => resubmitToN8n(job)}
-                              className="px-3 py-1 bg-blue-600 text-white text-sm rounded hover:bg-blue-700 transition-colors"
+                              className="px-4 py-2 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
                               title="Resubmit to n8n orchestration system"
                             >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
                               Resubmit to n8n
                             </button>
+                            
                             <button
                               onClick={() => resubmitToReceiptPrinter(job)}
-                              className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700 transition-colors"
+                              className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
                               title="Resubmit directly to receipt printer using stored data"
                             >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
                               Resubmit to Printer
                             </button>
+                            
                             <button
                               onClick={() => removeJob(job.id)}
-                              className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700 transition-colors"
+                              className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
                             >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
                               Remove
                             </button>
                           </div>
                         </div>
                       </div>
                     ))}
-                  </div>
-                )}
-              </div>
+                                     </div>
+                 )}
+               </div>
 
-              {/* Information Panel */}
-              <div className="bg-purple-50 border-2 border-purple-200 rounded-xl p-6">
-                <div className="flex items-start gap-4">
-                  <div className="flex-shrink-0">
-                    <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                      <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                    </div>
-                  </div>
-                  <div>
-                    <h3 className="text-lg font-semibold text-purple-900 mb-3">Print Queue Information</h3>
-                    <div className="text-purple-800 space-y-2">
-                      <p>Submit URLs to be processed by n8n and printed by the receipt printer device.</p>
-                      <ul className="list-disc list-inside space-y-1 ml-4">
-                        <li>Enter any URL you want to print in the input field above</li>
-                        <li>Click "Submit Print Job" to send to n8n orchestration system</li>
-                        <li>n8n processes the URL and sends formatted data to the receipt printer</li>
-                        <li>Monitor job status in real-time with automatic updates</li>
-                        <li><strong>Two resubmission options:</strong></li>
-                        <ul className="list-disc list-inside space-y-1 ml-4 mt-1">
-                          <li><strong>Resubmit to n8n:</strong> Sends URL + Status to n8n for reprocessing</li>
-                          <li><strong>Resubmit to Printer:</strong> Uses stored formatted data to print directly</li>
-                        </ul>
-                        <li>Job statuses are automatically refreshed every 30 seconds</li>
-                      </ul>
-                    </div>
-                  </div>
-                </div>
-              </div>
+               {/* How It Works Information Panel */}
+               <div className="mt-12 bg-blue-50 border-2 border-blue-200 rounded-xl p-6">
+                 <div className="flex items-start gap-4">
+                   <div className="flex-shrink-0">
+                     <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                       <svg className="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                       </svg>
+                     </div>
+                   </div>
+                   <div>
+                     <h3 className="text-lg font-semibold text-blue-900 mb-3">How It Works</h3>
+                     <div className="text-blue-800 space-y-2">
+                       <p>This unified tool handles both job tracking and print queue management through our secure webhook endpoint at <code className="bg-white px-2 py-1 rounded text-sm font-mono text-blue-900">core.bentheitguy.me</code></p>
+                       <ul className="list-disc list-inside space-y-1 ml-4">
+                         <li>Paste any job posting URL in the input field above</li>
+                         <li>Choose "Mark as Applied" for jobs you've already applied to</li>
+                         <li>Choose "Mark as Researching" for jobs you're still evaluating</li>
+                         <li>All jobs appear in the unified history above with real-time status updates</li>
+                         <li>Print jobs are automatically processed by n8n and sent to the receipt printer</li>
+                         <li>Monitor all job statuses and resubmit as needed</li>
+                         <li>All requests are authenticated and secure</li>
+                       </ul>
+                     </div>
+                   </div>
+                 </div>
+               </div>
             </div>
           ) : activeTab === 'import-jobs' ? (
             <div className="space-y-8">
