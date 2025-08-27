@@ -21,6 +21,12 @@ interface PrintJob {
     pro: string
     con: string
   }
+  resubmissions: {
+    timestamp: Date
+    type: 'n8n' | 'printer'
+    status: 'pending' | 'success' | 'error'
+    error?: string
+  }[]
 }
 
 export const Route = createFileRoute('/webhook-tool')({
@@ -50,13 +56,20 @@ function WebhookTool() {
         const jobsWithDates = parsed.map((job: any) => ({
           ...job,
           submittedAt: new Date(job.submittedAt),
-          lastUpdated: new Date(job.lastUpdated)
+          lastUpdated: new Date(job.lastUpdated),
+          resubmissions: (job.resubmissions || []).map((sub: any) => ({
+            ...sub,
+            timestamp: new Date(sub.timestamp)
+          }))
         }))
         setPrintJobs(jobsWithDates)
       } catch (e) {
         console.error('Failed to parse saved print jobs:', e)
       }
     }
+    
+    // Load jobs from receipt printer API on mount
+    updateJobStatuses()
   }, [])
 
   // Save jobs to localStorage whenever they change
@@ -96,10 +109,14 @@ function WebhookTool() {
           rating: jobInfo.data?.rating,
           fit_reasons: jobInfo.data?.fit_reasons,
           error: jobInfo.error,
-          jobStatus: jobInfo.status // The overall job status (success/error)
+          jobStatus: jobInfo.status === 'done' ? 'success' : jobInfo.status, // Map 'done' to 'success'
+          resubmissions: [] // Initialize empty resubmissions array
         }))
         
         setPrintJobs(prevJobs => {
+          console.log('Previous jobs:', prevJobs)
+          console.log('Jobs from API:', jobsArray)
+          
           // Create a map of existing jobs by URL for easy lookup
           const existingJobsMap = new Map(prevJobs.map(job => [job.url, job]))
           
@@ -122,11 +139,16 @@ function WebhookTool() {
                 fit_reasons: remoteJob.fit_reasons || existingJob.fit_reasons,
                 lastUpdated: new Date(),
                 error: remoteJob.error,
-                jobStatus: remoteJob.jobStatus
+                jobStatus: remoteJob.jobStatus,
+                // Keep existing resubmissions
+                resubmissions: existingJob.resubmissions || []
               }
             } else {
               // This is a new job from the receipt printer that we don't have locally
-              return remoteJob
+              return {
+                ...remoteJob,
+                resubmissions: [] // Initialize empty resubmissions array
+              }
             }
           })
           
@@ -135,7 +157,9 @@ function WebhookTool() {
             !jobsArray.some((remoteJob) => remoteJob.url === job.url)
           )
           
-          return [...updatedJobs, ...localJobsNotInAPI]
+          const finalJobs = [...updatedJobs, ...localJobsNotInAPI]
+          console.log('Final jobs:', finalJobs)
+          return finalJobs
         })
       } else {
         console.error('Failed to fetch jobs:', response.status, response.statusText)
@@ -199,17 +223,44 @@ function WebhookTool() {
     setIsSubmittingPrint(true)
     setError(null)
 
-    try {
-      const newJob: PrintJob = {
-        id: Date.now().toString(),
-        url: url.trim(),
-        status: 'Researching', // Default status for print jobs
-        submittedAt: new Date(),
-        lastUpdated: new Date()
-      }
-
-      // Add to local state immediately
-      setPrintJobs(prev => [newJob, ...prev])
+         try {
+       // Check if a job with this URL already exists
+       const existingJob = printJobs.find(job => job.url === url.trim())
+       
+       if (existingJob) {
+         // Update existing job instead of creating a new one
+         setPrintJobs(prev => prev.map(job => 
+           job.url === url.trim() 
+             ? {
+                 ...job,
+                 lastUpdated: new Date(),
+                 resubmissions: [
+                   ...job.resubmissions,
+                   {
+                     timestamp: new Date(),
+                     type: 'n8n',
+                     status: 'pending'
+                   }
+                 ]
+               }
+             : job
+         ))
+       } else {
+         // Create new job
+         const newJob: PrintJob = {
+           id: Date.now().toString(),
+           url: url.trim(),
+           status: 'Researching',
+           submittedAt: new Date(),
+           lastUpdated: new Date(),
+           resubmissions: [{
+             timestamp: new Date(),
+             type: 'n8n',
+             status: 'pending'
+           }]
+         }
+         setPrintJobs(prev => [newJob, ...prev])
+       }
 
       // Submit to n8n orchestration system (same as job tracking)
       const encodedUrl = encodeURIComponent(url.trim())
@@ -263,17 +314,25 @@ function WebhookTool() {
         throw new Error(`Failed to resubmit to n8n: ${response.status}`)
       }
 
-      // Create a new job entry
-      const newJob: PrintJob = {
-        id: Date.now().toString(),
-        url: job.url,
-        status: job.status,
-        submittedAt: new Date(),
-        lastUpdated: new Date()
-      }
-
-      setPrintJobs(prev => [newJob, ...prev])
-      setResult(`Job resubmitted to n8n successfully! New job ID: ${newJob.id}`)
+             // Add resubmission record to existing job
+       setPrintJobs(prev => prev.map(j => 
+         j.id === job.id 
+           ? {
+               ...j,
+               lastUpdated: new Date(),
+               resubmissions: [
+                 ...j.resubmissions,
+                 {
+                   timestamp: new Date(),
+                   type: 'n8n',
+                   status: 'success'
+                 }
+               ]
+             }
+           : j
+       ))
+       
+       setResult(`Job resubmitted to n8n successfully!`)
       
       // Trigger an immediate status update
       setTimeout(() => {
@@ -286,64 +345,101 @@ function WebhookTool() {
 
   const resubmitToReceiptPrinter = async (job: PrintJob) => {
     try {
-      setError(null)
-      setResult(null)
-
       // Check if we have the formatted data needed for direct printing
       if (!job.title || !job.company || !job.description) {
-        throw new Error('Missing formatted job data. Please wait for n8n to process the job first, or resubmit to n8n.')
+        setError('Cannot resubmit to printer: Missing formatted job data. Try resubmitting to n8n first.')
+        return
       }
 
-      // Submit directly to receipt printer using stored formatted data
-      const printData = {
-        title: job.title,
-        company: job.company,
-        location: job.location || 'N/A',
-        salary: job.salary || 'N/A',
-        description: job.description,
-        url: job.url,
-        date: job.date || new Date().toLocaleString(),
-        status: job.status,
-        rating: job.rating || 'N/A',
-        fit_reasons: job.fit_reasons || { pro: 'N/A', con: 'N/A' }
-      }
+      // Add resubmission record
+      setPrintJobs(prev => prev.map(j => 
+        j.id === job.id 
+          ? {
+              ...j,
+              lastUpdated: new Date(),
+              resubmissions: [
+                ...j.resubmissions,
+                {
+                  timestamp: new Date(),
+                  type: 'printer',
+                  status: 'pending'
+                }
+              ]
+            }
+          : j
+      ))
 
+      // Send directly to receipt printer
       const response = await fetch('http://receipt-printer.local:8000/print/job', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(printData)
+        body: JSON.stringify({
+          title: job.title,
+          company: job.company,
+          location: job.location || 'N/A',
+          salary: job.salary || 'N/A',
+          description: job.description,
+          url: job.url,
+          date: job.date || new Date().toISOString(),
+          status: job.status,
+          rating: job.rating || 'N/A',
+          fit_reasons: job.fit_reasons || { pro: 'N/A', con: 'N/A' }
+        }),
       })
 
-      if (!response.ok) {
-        throw new Error(`Failed to resubmit to receipt printer: ${response.status}`)
+      if (response.ok) {
+        // Update resubmission status to success
+        setPrintJobs(prev => prev.map(j => 
+          j.id === job.id 
+            ? {
+                ...j,
+                resubmissions: j.resubmissions.map(sub => 
+                  sub.timestamp.getTime() === Date.now() - 1000 // Roughly match the recent submission
+                    ? { ...sub, status: 'success' as const }
+                    : sub
+                )
+              }
+            : j
+        ))
+        
+        setResult(`Resubmitted ${job.title} at ${job.company} to receipt printer successfully!`)
+      } else {
+        // Update resubmission status to error
+        setPrintJobs(prev => prev.map(j => 
+          j.id === job.id 
+            ? {
+                ...j,
+                resubmissions: j.resubmissions.map(sub => 
+                  sub.timestamp.getTime() === Date.now() - 1000 // Roughly match the recent submission
+                    ? { ...sub, status: 'error' as const, error: 'Failed to submit to printer' }
+                    : sub
+                )
+              }
+            : j
+        ))
+        
+        setError('Failed to resubmit to receipt printer. Please try again.')
       }
-
-      const result = await response.json()
+    } catch (error) {
+      console.error('Error resubmitting to receipt printer:', error)
       
-      // Create a new job entry
-      const newJob: PrintJob = {
-        id: Date.now().toString(),
-        url: job.url,
-        status: job.status,
-        submittedAt: new Date(),
-        lastUpdated: new Date(),
-        // Copy over the formatted data
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        salary: job.salary,
-        description: job.description,
-        date: job.date,
-        rating: job.rating,
-        fit_reasons: job.fit_reasons
-      }
-
-      setPrintJobs(prev => [newJob, ...prev])
-      setResult(`Job resubmitted directly to receipt printer successfully! New job ID: ${newJob.id}`)
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to resubmit to receipt printer')
+      // Update resubmission status to error
+      setPrintJobs(prev => prev.map(j => 
+        j.id === job.id 
+          ? {
+              ...j,
+              resubmissions: j.resubmissions.map(sub => 
+                sub.timestamp.getTime() === Date.now() - 1000 // Roughly match the recent submission
+                  ? { ...sub, status: 'error' as const, error: 'Network error' }
+                  : sub
+              )
+            }
+          : j
+      ))
+      
+      setError('An error occurred while resubmitting to receipt printer.')
     }
   }
 
@@ -371,7 +467,8 @@ function WebhookTool() {
         rating: jobInfo.data?.rating,
         fit_reasons: jobInfo.data?.fit_reasons,
         error: jobInfo.error,
-        jobStatus: jobInfo.status // The overall job status (success/error)
+        jobStatus: jobInfo.status === 'done' ? 'success' : jobInfo.status, // Map 'done' to 'success'
+        resubmissions: [] // Initialize empty resubmissions array
       }))
 
       // Merge with existing jobs, avoiding duplicates by URL
@@ -702,6 +799,32 @@ function WebhookTool() {
                             </div>
                             {job.error && (
                               <p className="text-red-600 text-sm mt-1">Error: {job.error}</p>
+                            )}
+                            
+                            {/* Resubmission History */}
+                            {job.resubmissions && job.resubmissions.length > 0 && (
+                              <div className="mt-3 space-y-2">
+                                <p className="text-xs font-medium text-gray-700">Resubmission History:</p>
+                                <div className="space-y-1">
+                                  {job.resubmissions.map((sub, index) => (
+                                    <div key={index} className="flex items-center gap-2 text-xs">
+                                      <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                                        sub.status === 'success' ? 'bg-green-100 text-green-800' :
+                                        sub.status === 'error' ? 'bg-red-100 text-red-800' :
+                                        'bg-yellow-100 text-yellow-800'
+                                      }`}>
+                                        {sub.type === 'n8n' ? 'n8n' : 'Printer'} - {sub.status}
+                                      </span>
+                                      <span className="text-gray-500">
+                                        {sub.timestamp.toLocaleString()}
+                                      </span>
+                                      {sub.error && (
+                                        <span className="text-red-600">({sub.error})</span>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
                             )}
                           </div>
                           <div className="flex items-center gap-2 ml-4">
