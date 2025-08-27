@@ -47,6 +47,11 @@ function WebhookTool() {
   const [corsStatus, setCorsStatus] = useState<'ok' | 'cors-error' | null>(null)
   const [isLoadingJobs, setIsLoadingJobs] = useState(true)
   const [jobsError, setJobsError] = useState<string | null>(null)
+  const [showClearConfirmation, setShowClearConfirmation] = useState(false)
+  const [jobToRemove, setJobToRemove] = useState<string | null>(null)
+  const [selectedJobs, setSelectedJobs] = useState<Set<string>>(new Set())
+  const [showBulkActions, setShowBulkActions] = useState(false)
+  const [statusFilter, setStatusFilter] = useState<string>('all')
 
   // Load existing jobs from localStorage on component mount
   useEffect(() => {
@@ -548,9 +553,108 @@ function WebhookTool() {
     }
   }
 
-  const removeJob = (jobId: string) => {
-    setPrintJobs(prev => prev.filter(job => job.id !== jobId))
+  const removeJob = async (jobId: string) => {
+    try {
+      // Call the DELETE endpoint to remove the job from the backend
+      const response = await fetch(`http://receipt-printer.local:8000/jobs/${jobId}`, {
+        method: 'DELETE',
+      })
+      
+      if (response.ok) {
+        // Job successfully removed from backend, now remove from local state
+        setPrintJobs(prev => prev.filter(job => job.id !== jobId))
+        console.log('Job removed successfully')
+        setJobToRemove(null) // Hide confirmation dialog
+      } else {
+        console.error('Failed to remove job from backend:', response.status, response.statusText)
+        // Still remove from local state to maintain UI consistency
+        setPrintJobs(prev => prev.filter(job => job.id !== jobId))
+        setJobToRemove(null) // Hide confirmation dialog
+      }
+    } catch (error) {
+      console.error('Error removing job:', error)
+      // Remove from local state even if backend call fails
+      setPrintJobs(prev => prev.filter(job => job.id !== jobId))
+      setJobToRemove(null) // Hide confirmation dialog
+    }
   }
+
+  const clearAllJobs = async () => {
+    try {
+      // Call the DELETE endpoint to clear all jobs from the backend
+      const response = await fetch('http://receipt-printer.local:8000/jobs', {
+        method: 'DELETE',
+      })
+      
+      if (response.ok) {
+        const result = await response.json()
+        console.log(result.message) // "All X jobs cleared"
+        // Clear all jobs from local state
+        setPrintJobs([])
+        setResult(`All jobs cleared successfully: ${result.message}`)
+        setShowClearConfirmation(false) // Hide confirmation dialog
+      } else {
+        console.error('Failed to clear jobs from backend:', response.status, response.statusText)
+        setError('Failed to clear jobs from backend')
+      }
+    } catch (error) {
+      console.error('Error clearing jobs:', error)
+      setError('Error clearing jobs from backend')
+    }
+  }
+
+  const removeBulkJobs = async () => {
+    try {
+      const jobIds = Array.from(selectedJobs)
+      let successCount = 0
+      let errorCount = 0
+
+      // Remove each selected job individually
+      for (const jobId of jobIds) {
+        try {
+          const response = await fetch(`http://receipt-printer.local:8000/jobs/${jobId}`, {
+            method: 'DELETE',
+          })
+          
+          if (response.ok) {
+            successCount++
+          } else {
+            errorCount++
+          }
+        } catch (error) {
+          errorCount++
+        }
+      }
+
+      // Update local state
+      setPrintJobs(prev => prev.filter(job => !selectedJobs.has(job.id)))
+      
+      // Show result message
+      if (errorCount === 0) {
+        setResult(`Successfully removed ${successCount} jobs`)
+      } else {
+        setResult(`Removed ${successCount} jobs successfully, ${errorCount} failed`)
+      }
+      
+      // Clear selection and hide bulk actions
+      setSelectedJobs(new Set())
+      setShowBulkActions(false)
+    } catch (error) {
+      console.error('Error removing bulk jobs:', error)
+      setError('Error removing selected jobs')
+    }
+  }
+
+  // Filter jobs based on status filter
+  const filteredJobs = printJobs.filter(job => {
+    if (statusFilter === 'all') return true
+    if (statusFilter === 'success') return job.jobStatus === 'success'
+    if (statusFilter === 'error') return job.jobStatus === 'error'
+    if (statusFilter === 'pending') return job.jobStatus === 'pending'
+    if (statusFilter === 'applied') return job.status === 'Applied'
+    if (statusFilter === 'researching') return job.status === 'Researching'
+    return true
+  })
 
   const importJobsFromJSON = (jsonData: string) => {
     try {
@@ -674,7 +778,7 @@ function WebhookTool() {
                       onChange={(e) => setUrl(e.target.value)}
                       onKeyPress={handleKeyPress}
                       placeholder="https://example.com/job-posting"
-                      className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white"
+                      className="w-full pl-12 pr-4 py-4 text-lg border-2 border-gray-300 rounded-xl focus:ring-4 focus:ring-blue-100 focus:border-blue-500 transition-all duration-200 bg-white text-black"
                     />
                   </div>
                 </div>
@@ -766,7 +870,40 @@ function WebhookTool() {
               {/* Unified Job History */}
               <div className="mt-12">
                 <div className="flex items-center justify-between mb-6">
-                  <h3 className="text-2xl font-bold text-gray-900">Job History</h3>
+                  <div className="flex items-center gap-4">
+                    <h3 className="text-2xl font-bold text-gray-900">Job History</h3>
+                    {printJobs.length > 0 && (
+                      <div className="flex items-center gap-3">
+                        <label className="flex items-center gap-2 text-sm text-gray-600">
+                          <input
+                            type="checkbox"
+                            checked={selectedJobs.size === printJobs.length && printJobs.length > 0}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedJobs(new Set(printJobs.map(job => job.id)))
+                                setShowBulkActions(true)
+                              } else {
+                                setSelectedJobs(new Set())
+                                setShowBulkActions(false)
+                              }
+                            }}
+                            className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                          />
+                          Select All
+                        </label>
+                        <button
+                          onClick={() => setShowBulkActions(!showBulkActions)}
+                          className={`px-3 py-1 text-sm rounded-lg transition-colors ${
+                            showBulkActions 
+                              ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                              : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                          }`}
+                        >
+                          Bulk Actions
+                        </button>
+                      </div>
+                    )}
+                  </div>
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => {
@@ -851,8 +988,151 @@ function WebhookTool() {
                       </svg>
                       Refresh Jobs
                     </button>
+                    
+                    <button
+                      onClick={() => setShowClearConfirmation(true)}
+                      className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 transition-colors flex items-center gap-2"
+                      title="Remove all jobs from both frontend and backend"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                      Clear All Jobs
+                    </button>
                   </div>
                 </div>
+
+                {/* Clear All Jobs Confirmation Dialog */}
+                {showClearConfirmation && (
+                  <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                          <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-red-800 mb-3">Confirm Clear All Jobs</h4>
+                        <p className="text-red-700 mb-4">
+                          Are you sure you want to remove all {printJobs.length} jobs? This action cannot be undone and will remove jobs from both the frontend and backend.
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={clearAllJobs}
+                            className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Yes, Clear All Jobs
+                          </button>
+                          <button
+                            onClick={() => setShowClearConfirmation(false)}
+                            className="px-4 py-2 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Individual Job Removal Confirmation Dialog */}
+                {jobToRemove && (
+                  <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-6">
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0">
+                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
+                          <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                          </svg>
+                        </div>
+                      </div>
+                      <div className="flex-1">
+                        <h4 className="text-lg font-semibold text-red-800 mb-3">Confirm Remove Job</h4>
+                        <p className="text-red-700 mb-4">
+                          Are you sure you want to remove this job? This action cannot be undone and will remove the job from both the frontend and backend.
+                        </p>
+                        <div className="flex gap-3">
+                          <button
+                            onClick={() => removeJob(jobToRemove)}
+                            className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                            Yes, Remove Job
+                          </button>
+                          <button
+                            onClick={() => setJobToRemove(null)}
+                            className="px-4 py-2 bg-gray-600 text-white font-medium rounded-lg hover:bg-gray-700 transition-colors"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Bulk Actions Bar */}
+                {showBulkActions && selectedJobs.size > 0 && (
+                  <div className="mb-6 bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-blue-800 font-medium">
+                          {selectedJobs.size} job{selectedJobs.size !== 1 ? 's' : ''} selected
+                        </span>
+                        <button
+                          onClick={() => setSelectedJobs(new Set())}
+                          className="text-blue-600 hover:text-blue-800 text-sm underline"
+                        >
+                          Clear Selection
+                        </button>
+                      </div>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={removeBulkJobs}
+                          className="px-4 py-2 bg-red-600 text-white font-medium rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
+                        >
+                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                          </svg>
+                          Remove Selected ({selectedJobs.size})
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Filter Bar */}
+                {printJobs.length > 0 && (
+                  <div className="mb-6 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <label className="flex items-center gap-2 text-sm text-gray-600">
+                        <span>Filter by:</span>
+                        <select
+                          value={statusFilter}
+                          onChange={(e) => setStatusFilter(e.target.value)}
+                          className="rounded border-gray-300 text-gray-700 focus:ring-blue-500 focus:border-blue-500 text-sm"
+                        >
+                          <option value="all">All Jobs ({printJobs.length})</option>
+                          <option value="success">Success ({printJobs.filter(job => job.jobStatus === 'success').length})</option>
+                          <option value="error">Error ({printJobs.filter(job => job.jobStatus === 'error').length})</option>
+                          <option value="pending">Pending ({printJobs.filter(job => job.jobStatus === 'pending').length})</option>
+                          <option value="applied">Applied ({printJobs.filter(job => job.status === 'Applied').length})</option>
+                          <option value="researching">Researching ({printJobs.filter(job => job.status === 'Researching').length})</option>
+                        </select>
+                      </label>
+                    </div>
+                    <div className="text-sm text-gray-500">
+                      Showing {filteredJobs.length} of {printJobs.length} jobs
+                    </div>
+                  </div>
+                )}
 
                 {isLoadingJobs ? (
                   <div className="text-center py-12 text-gray-500">
@@ -882,11 +1162,46 @@ function WebhookTool() {
                     <p className="text-lg">No jobs yet</p>
                     <p className="text-sm">Submit a URL above to get started</p>
                   </div>
+                ) : filteredJobs.length === 0 ? (
+                  <div className="text-center py-12 text-gray-500">
+                    <svg className="w-16 h-16 mx-auto mb-4 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <p className="text-lg">No jobs match the current filter</p>
+                    <p className="text-sm">Try changing the filter or clear it to see all jobs</p>
+                    <button
+                      onClick={() => setStatusFilter('all')}
+                      className="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+                    >
+                      Show All Jobs
+                    </button>
+                  </div>
                 ) : (
                   <div className="space-y-4">
-                    {printJobs.map((job) => (
+                    {filteredJobs.map((job) => (
                       <div key={job.id} className="bg-white rounded-lg p-6 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
                         <div className="flex items-start justify-between">
+                          {showBulkActions && (
+                            <div className="flex-shrink-0 mr-4">
+                              <input
+                                type="checkbox"
+                                checked={selectedJobs.has(job.id)}
+                                onChange={(e) => {
+                                  const newSelected = new Set(selectedJobs)
+                                  if (e.target.checked) {
+                                    newSelected.add(job.id)
+                                  } else {
+                                    newSelected.delete(job.id)
+                                  }
+                                  setSelectedJobs(newSelected)
+                                  if (newSelected.size === 0) {
+                                    setShowBulkActions(false)
+                                  }
+                                }}
+                                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500 w-5 h-5"
+                              />
+                            </div>
+                          )}
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-3">
                               <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800">
@@ -979,7 +1294,7 @@ function WebhookTool() {
                             </button>
                             
                             <button
-                              onClick={() => removeJob(job.id)}
+                              onClick={() => setJobToRemove(job.id)}
                               className="px-4 py-2 bg-red-600 text-white text-sm rounded-lg hover:bg-red-700 transition-colors flex items-center gap-2"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
