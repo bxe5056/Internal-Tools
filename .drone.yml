@@ -6,7 +6,7 @@ name: internal-tools-pipeline
 steps:
   # Step 1: Install dependencies and build
   - name: build
-    image: node:18-alpine
+    image: node:20-alpine
     commands:
       - npm ci --prefer-offline --no-audit
       - npm run build
@@ -17,7 +17,7 @@ steps:
 
   # Step 2: Run tests (if you have any)
   - name: test
-    image: node:18-alpine
+    image: node:20-alpine
     commands:
       - npm ci --prefer-offline --no-audit
       - npm test --if-present

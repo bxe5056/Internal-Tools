@@ -152,7 +152,7 @@ chmod 600 .env
 ## Troubleshooting
 
 ### Build Fails
-- Check Node.js version compatibility (currently using Node 18)
+- Check Node.js version compatibility (currently using Node 20)
 - Verify all dependencies are in `package.json`
 - Check build logs for missing environment variables
 
