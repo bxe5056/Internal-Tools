@@ -741,16 +741,18 @@ function WebhookTool() {
     }
   }
 
-  // Filter jobs based on status filter
-  const filteredJobs = printJobs.filter(job => {
-    if (statusFilter === 'all') return true
-    if (statusFilter === 'success') return job.jobStatus === 'success'
-    if (statusFilter === 'error') return job.jobStatus === 'error'
-    if (statusFilter === 'pending') return job.jobStatus === 'pending'
-    if (statusFilter === 'applied') return job.status === 'Applied'
-    if (statusFilter === 'researching') return job.status === 'Researching'
-    return true
-  })
+  // Filter and sort jobs based on status filter - newest first
+  const filteredJobs = printJobs
+    .filter(job => {
+      if (statusFilter === 'all') return true
+      if (statusFilter === 'success') return job.jobStatus === 'success'
+      if (statusFilter === 'error') return job.jobStatus === 'error'
+      if (statusFilter === 'pending') return job.jobStatus === 'pending'
+      if (statusFilter === 'applied') return job.status === 'Applied'
+      if (statusFilter === 'researching') return job.status === 'Researching'
+      return true
+    })
+    .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
 
   // Toast notification function
   const showToastNotification = (message: string, type: 'success' | 'error' = 'success') => {
@@ -1353,8 +1355,15 @@ function WebhookTool() {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {filteredJobs.map((job) => (
-                      <div key={job.id} className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden">
+                    {filteredJobs.map((job, index) => (
+                      <div 
+                        key={job.id} 
+                        className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden animate-slideIn"
+                        style={{
+                          animationDelay: `${index * 0.05}s`,
+                          animationFillMode: 'both'
+                        }}
+                      >
                         {/* Job Card Header */}
                         <div className="bg-gradient-to-r from-blue-50 to-indigo-50 px-6 py-4 border-b border-gray-200">
                         <div className="flex items-start justify-between">
