@@ -8,11 +8,8 @@ steps:
   - name: build
     image: node:18-alpine
     commands:
-      - npm ci
+      - npm ci --prefer-offline --no-audit
       - npm run build
-    volumes:
-      - name: node-cache
-        path: /root/.npm
     when:
       branch:
         - main
@@ -22,11 +19,8 @@ steps:
   - name: test
     image: node:18-alpine
     commands:
-      - npm ci
+      - npm ci --prefer-offline --no-audit
       - npm test --if-present
-    volumes:
-      - name: node-cache
-        path: /root/.npm
     depends_on:
       - build
     when:
@@ -44,12 +38,13 @@ steps:
         - ${DRONE_COMMIT_SHA:0:8}
       dockerfile: Dockerfile
       context: .
+      # Docker Hub authentication (required for pushing)
+      username:
+        from_secret: docker_username
+      password:
+        from_secret: docker_token
       # For local registry, uncomment and configure:
       # registry: your-nas-registry:5000
-      # username:
-      #   from_secret: docker_username
-      # password:
-      #   from_secret: docker_password
     depends_on:
       - test
     when:
@@ -83,12 +78,6 @@ steps:
       branch:
         - main
 
-# Define volumes for caching
-volumes:
-  - name: node-cache
-    host:
-      path: /tmp/drone-cache
-
 # Trigger conditions
 trigger:
   branch:
@@ -98,10 +87,10 @@ trigger:
     - push
     - pull_request
 
-# Optional: Define secrets in your Drone settings
+# Required: Define secrets in your Drone settings
 # These secrets should be configured in your Drone UI:
-# - docker_username
-# - docker_password
+# - docker_username (your Docker Hub username: bentheitguy)
+# - docker_token (your Docker Hub Personal Access Token)
 # - nas_host
 # - nas_username
 # - nas_ssh_key

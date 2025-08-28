@@ -23,9 +23,9 @@ This document provides instructions for deploying your TanStack Start applicatio
 Configure these secrets in your Drone CI dashboard (`Settings > Secrets`):
 
 ```bash
-# Docker registry credentials (if using private registry)
-docker_username: your-docker-username
-docker_password: your-docker-password
+# Docker Hub credentials (required for pushing to bentheitguy/internal-tools)
+docker_username: bentheitguy
+docker_token: your-docker-hub-personal-access-token
 
 # NAS deployment credentials (for SSH deployment)
 nas_host: your-nas-ip-address
@@ -39,7 +39,9 @@ nas_ssh_key: |
 coreAPIToken: your-basic-auth-token-value
 ```
 
-**Important**: The `coreAPIToken` should contain your actual Basic auth token value that your application uses for API authentication.
+**Important**: 
+- The `coreAPIToken` should contain your actual Basic auth token value that your application uses for API authentication.
+- For `docker_token`, use a Docker Hub **Personal Access Token** (strongly recommended). Get a token at: https://hub.docker.com/settings/security
 
 ### 2. Customize .drone.yml
 
