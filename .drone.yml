@@ -51,32 +51,55 @@ steps:
       branch:
         - main
 
-  # Step 4: Deploy to your NAS (disabled - deploy manually via Unraid)
-  # - name: deploy
-  #   image: appleboy/drone-ssh
-  #   settings:
-  #     host:
-  #       from_secret: nas_host
-  #     username:
-  #       from_secret: nas_username
-  #     key:
-  #       from_secret: nas_ssh_key
-  #     port: 22
-  #     envs:
-  #       - CORE_API_TOKEN
-  #     script:
-  #       - cd /path/to/your/deployment/directory
-  #       - echo "CORE_API_TOKEN=$CORE_API_TOKEN" > .env
-  #       - docker compose pull
-  #       - docker compose up -d
-  #   environment:
-  #     CORE_API_TOKEN:
-  #       from_secret: coreAPIToken
-  #   depends_on:
-  #     - docker-build
-  #   when:
-  #     branch:
-  #       - main
+  # Step 4: Deploy to Unraid Server
+  - name: deploy-unraid
+    image: appleboy/drone-ssh
+    settings:
+      host:
+        from_secret: nas_host
+      username:
+        from_secret: nas_username
+      key:
+        from_secret: nas_ssh_key
+      port: 22
+      envs:
+        - CORE_API_TOKEN
+      script:
+        # Create deployment directory if it doesn't exist
+        - mkdir -p /mnt/user/appdata/internal-tools
+        - cd /mnt/user/appdata/internal-tools
+        # Create/update environment file
+        - echo "CORE_API_TOKEN=$CORE_API_TOKEN" > .env
+        - chmod 600 .env
+        - chown nobody:users .env
+        # Download/update the unraid-docker-compose.yml file
+        - |
+          echo "Downloading latest docker-compose configuration..."
+          if wget -O unraid-docker-compose.yml.tmp https://raw.githubusercontent.com/bxe5056/internal-tools/main/unraid-docker-compose.yml 2>/dev/null || \
+             curl -o unraid-docker-compose.yml.tmp https://raw.githubusercontent.com/bxe5056/internal-tools/main/unraid-docker-compose.yml 2>/dev/null; then
+            mv unraid-docker-compose.yml.tmp unraid-docker-compose.yml
+            echo "Docker compose file updated successfully"
+          else
+            echo "Failed to download compose file, using existing one if available"
+            rm -f unraid-docker-compose.yml.tmp
+          fi
+        # Pull latest image and handle existing container
+        - docker pull bxe5056/internal-tools:latest
+        # Stop existing container if it exists (either name)
+        - docker stop JobsPrintManager || docker stop internal-tools || true
+        - docker rm JobsPrintManager || docker rm internal-tools || true
+        # Start with docker-compose
+        - docker-compose -f unraid-docker-compose.yml up -d
+        # Clean up old images to save space
+        - docker image prune -f
+    environment:
+      CORE_API_TOKEN:
+        from_secret: coreAPIToken
+    depends_on:
+      - docker-build
+    when:
+      branch:
+        - main
 
 # Trigger conditions
 trigger:

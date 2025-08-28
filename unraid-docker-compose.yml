@@ -3,9 +3,10 @@ version: '3.8'
 services:
   internal-tools:
     image: bxe5056/internal-tools:latest
-    container_name: internal-tools
+    container_name: JobsPrintManager
+    network_mode: bridge
     ports:
-      - "3000:3000"
+      - "89:3000"
     environment:
       - NODE_ENV=production
       - PORT=3000
