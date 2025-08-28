@@ -94,8 +94,8 @@ steps:
         # Stop existing container if it exists (either name)
         - docker stop JobsPrintManager || docker stop internal-tools || true
         - docker rm JobsPrintManager || docker rm internal-tools || true
-        # Start with docker-compose
-        - docker-compose -f unraid-docker-compose.yml up -d
+        # Start with docker compose (newer syntax)
+        - docker compose -f unraid-docker-compose.yml up -d
         # Clean up old images to save space
         - docker image prune -f
     environment:
