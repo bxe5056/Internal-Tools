@@ -29,6 +29,7 @@ import { Route as PathlessLayoutNestedLayoutRouteARouteImport } from './routes/_
 import { ServerRoute as CustomScriptDotjsServerRouteImport } from './routes/customScript[.]js'
 import { ServerRoute as ApiWebhookServerRouteImport } from './routes/api/webhook'
 import { ServerRoute as ApiUsersServerRouteImport } from './routes/api/users'
+import { ServerRoute as ApiHealthServerRouteImport } from './routes/api/health'
 import { ServerRoute as ApiWorkflowStatusExecutionIdServerRouteImport } from './routes/api/workflow-status.$executionId'
 import { ServerRoute as ApiUsersUserIdServerRouteImport } from './routes/api/users.$userId'
 
@@ -123,6 +124,11 @@ const ApiWebhookServerRoute = ApiWebhookServerRouteImport.update({
 const ApiUsersServerRoute = ApiUsersServerRouteImport.update({
   id: '/api/users',
   path: '/api/users',
+  getParentRoute: () => rootServerRouteImport,
+} as any)
+const ApiHealthServerRoute = ApiHealthServerRouteImport.update({
+  id: '/api/health',
+  path: '/api/health',
   getParentRoute: () => rootServerRouteImport,
 } as any)
 const ApiWorkflowStatusExecutionIdServerRoute =
@@ -243,6 +249,7 @@ export interface RootRouteChildren {
 }
 export interface FileServerRoutesByFullPath {
   '/customScript.js': typeof CustomScriptDotjsServerRoute
+  '/api/health': typeof ApiHealthServerRoute
   '/api/users': typeof ApiUsersServerRouteWithChildren
   '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
@@ -250,6 +257,7 @@ export interface FileServerRoutesByFullPath {
 }
 export interface FileServerRoutesByTo {
   '/customScript.js': typeof CustomScriptDotjsServerRoute
+  '/api/health': typeof ApiHealthServerRoute
   '/api/users': typeof ApiUsersServerRouteWithChildren
   '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
@@ -258,6 +266,7 @@ export interface FileServerRoutesByTo {
 export interface FileServerRoutesById {
   __root__: typeof rootServerRouteImport
   '/customScript.js': typeof CustomScriptDotjsServerRoute
+  '/api/health': typeof ApiHealthServerRoute
   '/api/users': typeof ApiUsersServerRouteWithChildren
   '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
@@ -267,6 +276,7 @@ export interface FileServerRouteTypes {
   fileServerRoutesByFullPath: FileServerRoutesByFullPath
   fullPaths:
     | '/customScript.js'
+    | '/api/health'
     | '/api/users'
     | '/api/webhook'
     | '/api/users/$userId'
@@ -274,6 +284,7 @@ export interface FileServerRouteTypes {
   fileServerRoutesByTo: FileServerRoutesByTo
   to:
     | '/customScript.js'
+    | '/api/health'
     | '/api/users'
     | '/api/webhook'
     | '/api/users/$userId'
@@ -281,6 +292,7 @@ export interface FileServerRouteTypes {
   id:
     | '__root__'
     | '/customScript.js'
+    | '/api/health'
     | '/api/users'
     | '/api/webhook'
     | '/api/users/$userId'
@@ -289,6 +301,7 @@ export interface FileServerRouteTypes {
 }
 export interface RootServerRouteChildren {
   CustomScriptDotjsServerRoute: typeof CustomScriptDotjsServerRoute
+  ApiHealthServerRoute: typeof ApiHealthServerRoute
   ApiUsersServerRoute: typeof ApiUsersServerRouteWithChildren
   ApiWebhookServerRoute: typeof ApiWebhookServerRoute
   ApiWorkflowStatusExecutionIdServerRoute: typeof ApiWorkflowStatusExecutionIdServerRoute
@@ -426,6 +439,13 @@ declare module '@tanstack/react-start/server' {
       preLoaderRoute: typeof ApiUsersServerRouteImport
       parentRoute: typeof rootServerRouteImport
     }
+    '/api/health': {
+      id: '/api/health'
+      path: '/api/health'
+      fullPath: '/api/health'
+      preLoaderRoute: typeof ApiHealthServerRouteImport
+      parentRoute: typeof rootServerRouteImport
+    }
     '/api/workflow-status/$executionId': {
       id: '/api/workflow-status/$executionId'
       path: '/api/workflow-status/$executionId'
@@ -524,6 +544,7 @@ export const routeTree = rootRouteImport
   ._addFileTypes<FileRouteTypes>()
 const rootServerRouteChildren: RootServerRouteChildren = {
   CustomScriptDotjsServerRoute: CustomScriptDotjsServerRoute,
+  ApiHealthServerRoute: ApiHealthServerRoute,
   ApiUsersServerRoute: ApiUsersServerRouteWithChildren,
   ApiWebhookServerRoute: ApiWebhookServerRoute,
   ApiWorkflowStatusExecutionIdServerRoute:

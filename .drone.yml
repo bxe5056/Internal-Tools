@@ -106,11 +106,11 @@ steps:
             -e coreAPIToken="$CORE_API_TOKEN" \
             -e N8N_API_KEY="$N8N_API_KEY" \
             --env-file /mnt/user/appdata/internal-tools/.env \
-            --health-cmd="node -e \"require('http').get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })\"" \
+            --health-cmd="node -e \"const http = require('http'); const req = http.get('http://localhost:3000/api/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) }); req.on('error', () => process.exit(1)); req.setTimeout(8000, () => { req.destroy(); process.exit(1) });\"" \
             --health-interval=30s \
             --health-timeout=10s \
             --health-retries=3 \
-            --health-start-period=40s \
+            --health-start-period=60s \
             bxe5056/internal-tools:latest
         # Clean up old images to save space
         - docker image prune -f
