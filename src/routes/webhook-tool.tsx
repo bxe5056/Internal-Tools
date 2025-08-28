@@ -364,27 +364,26 @@ function WebhookTool() {
     setPrintJobs(prev => [newJob, ...prev])
 
     try {
-      // Encode the URL for the query parameter
-      const encodedUrl = encodeURIComponent(url.trim())
-      
-      // Construct the webhook URL with status parameter
-      const webhookUrl = `https://core.bentheitguy.me/webhook/7dcd87be-7479-401f-8ed6-e97bf2bf58e8?url=${encodedUrl}&status=${status}`
-      
-      // Execute the request
-      const response = await fetch(webhookUrl, {
-        method: 'GET',
+      // Call our server API route instead of directly calling the external webhook
+      const response = await fetch('/api/webhook', {
+        method: 'POST',
         headers: {
-          'Authorization': process.env.coreAPIToken || ''
-        }
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          url: url.trim(),
+          status: status
+        })
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`)
+        throw new Error(data.error || `HTTP error! status: ${response.status}`)
       }
 
-      const data = await response.text()
-      // Show toast notification instead of setting result
-      showToastNotification(`Job ${status} successfully!`, 'success')
+      // Show toast notification
+      showToastNotification(data.message, 'success')
       // Clear the input box after successful submission
       setUrl('')
       
