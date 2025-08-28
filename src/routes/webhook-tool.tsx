@@ -150,6 +150,28 @@ function WebhookTool() {
         }))
         setPrintJobs(jobsWithDates)
         console.log('Loaded jobs from localStorage:', jobsWithDates)
+        
+        // Check if any existing jobs need workflow polling restarted
+        const runningJobs = jobsWithDates.filter((job: { workflowStatus: string; executionId: string }) => 
+          job.workflowStatus === 'running' && 
+          job.executionId && 
+          job.executionId.trim() !== ''
+        )
+        
+        if (runningJobs.length > 0) {
+          console.log(`Found ${runningJobs.length} running workflows that need polling restarted:`, runningJobs.map((j: { id: any; executionId: any }) => ({ id: j.id, executionId: j.executionId })))
+          
+          // Restart polling for any running workflows after a short delay
+          // to ensure the component state is fully updated
+          setTimeout(() => {
+            runningJobs.forEach((job: { id: string; executionId: string }) => {
+              console.log(`Restarting workflow polling for existing running job: ${job.id} with execution: ${job.executionId}`)
+              startWorkflowPolling(job.id, job.executionId)
+            })
+          }, 1000)
+        } else {
+          console.log('No running workflows found that need polling restarted')
+        }
       } catch (e) {
         console.error('Failed to parse saved print jobs:', e)
         setJobsError('Failed to load saved jobs from localStorage')
@@ -367,6 +389,29 @@ function WebhookTool() {
             const finalJobs = [...updatedJobs, ...localJobsNotInAPI]
               .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
             console.log('Final merged jobs:', finalJobs)
+            
+            // Check if any updated jobs need workflow polling restarted
+            const runningJobsToRestart = finalJobs.filter(job => 
+              'workflowStatus' in job && 
+              'executionId' in job &&
+              job.workflowStatus === 'running' && 
+              job.executionId && 
+              job.executionId.trim() !== '' &&
+              !activePollingJobs.has(job.id)
+            )
+            
+            if (runningJobsToRestart.length > 0) {
+              console.log(`Found ${runningJobsToRestart.length} running workflows that need polling restarted after initial API load:`, runningJobsToRestart.map(j => ({ id: j.id, executionId: 'executionId' in j ? j.executionId : undefined })))
+              
+              // Restart polling for any running workflows
+              runningJobsToRestart.forEach(job => {
+                if ('executionId' in job && job.executionId) {
+                  console.log(`Restarting workflow polling for initial API load running job: ${job.id} with execution: ${job.executionId}`)
+                  startWorkflowPolling(job.id, job.executionId)
+                }
+              })
+            }
+            
             return finalJobs
           })
         } else {
@@ -477,6 +522,29 @@ function WebhookTool() {
           
           const finalJobs = [...updatedJobs, ...localJobsNotInAPI]
           console.log('Final jobs:', finalJobs)
+          
+          // Check if any updated jobs need workflow polling restarted
+          const runningJobsToRestart = finalJobs.filter(job => 
+            'workflowStatus' in job && 
+            'executionId' in job &&
+            job.workflowStatus === 'running' && 
+            job.executionId && 
+            job.executionId.trim() !== '' &&
+            !activePollingJobs.has(job.id)
+          )
+          
+          if (runningJobsToRestart.length > 0) {
+            console.log(`Found ${runningJobsToRestart.length} running workflows that need polling restarted after API update:`, runningJobsToRestart.map(j => ({ id: j.id, executionId: 'executionId' in j ? j.executionId : undefined })))
+            
+            // Restart polling for any running workflows
+            runningJobsToRestart.forEach(job => {
+              if ('executionId' in job && job.executionId) {
+                console.log(`Restarting workflow polling for updated running job: ${job.id} with execution: ${job.executionId}`)
+                startWorkflowPolling(job.id, job.executionId)
+              }
+            })
+          }
+          
           return finalJobs
         })
       } else {
@@ -1822,7 +1890,18 @@ function WebhookTool() {
                               <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
                               </svg>
-                              <span className="truncate">{job.url}</span>
+                              <a 
+                                href={job.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="truncate text-blue-600 hover:text-blue-800 hover:underline cursor-pointer flex items-center gap-1 group"
+                                title={`Open ${job.url} in new tab`}
+                              >
+                                <span className="truncate">{job.url}</span>
+                                <svg className="w-3 h-3 text-blue-500 group-hover:text-blue-700 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                                </svg>
+                              </a>
                               <span className="text-xs bg-gray-200 px-2 py-1 rounded whitespace-nowrap ml-auto">
                                 ID: {job.id}
                               </span>
