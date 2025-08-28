@@ -561,6 +561,7 @@ function WebhookTool() {
        // Check if a job with this URL already exists (using normalized URL matching)
        const normalizedUrl = normalizeUrl(url)
        const existingJob = printJobs.find(job => normalizeUrl(job.url) === normalizedUrl)
+       let newJobId: string | undefined
        
        if (existingJob) {
          // Update existing job instead of creating a new one
@@ -584,8 +585,9 @@ function WebhookTool() {
          ))
        } else {
         // Create new job with loading state
+         newJobId = Date.now().toString()
          const newJob: PrintJob = {
-           id: Date.now().toString(),
+           id: newJobId,
            url: url.trim(),
            status: 'Researching',
            submittedAt: new Date(),
@@ -637,8 +639,8 @@ function WebhookTool() {
       console.log('Extracted execution ID:', executionId)
       
       // Update the job with execution ID and start polling if we have one
-      // Use the existing job ID or create a new timestamp-based ID for new jobs
-      const targetJobId = existingJob?.id || newJob.id
+      // Use the existing job ID or the new job ID for new jobs
+      const targetJobId = existingJob?.id || newJobId
       if (executionId) {
         setPrintJobs(prev => prev.map(job => 
           job.id === targetJobId ? {
@@ -657,7 +659,9 @@ function WebhookTool() {
         
         // Start polling for workflow status updates
         console.log(`Starting workflow polling for job ${targetJobId} with execution ${executionId}`)
-        startWorkflowPolling(targetJobId, executionId)
+        if (targetJobId) {
+          startWorkflowPolling(targetJobId, executionId)
+        }
       }
 
       setUrl('')

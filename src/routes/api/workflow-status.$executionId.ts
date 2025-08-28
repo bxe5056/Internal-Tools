@@ -92,12 +92,12 @@ function extractCurrentStep(executionData: any): string | null {
 }
 
 // Helper function to extract workflow steps
-function extractWorkflowSteps(executionData: any): Array<{step: string, status: 'completed' | 'running' | 'pending', timestamp?: string}> {
+function extractWorkflowSteps(executionData: any): Array<{step: string, status: 'completed' | 'running' | 'pending' | 'error', timestamp?: string}> {
   const steps = []
   
   if (!executionData.data) {
     return [
-      { step: 'Initialize workflow', status: executionData.status === 'running' ? 'running' : 'pending' }
+      { step: 'Initialize workflow', status: (executionData.status === 'running' ? 'running' : 'pending') as 'error' | 'pending' | 'running' | 'completed' }
     ]
   }
 
@@ -108,7 +108,7 @@ function extractWorkflowSteps(executionData: any): Array<{step: string, status: 
       const lastExecution = nodeArray[nodeArray.length - 1]
       steps.push({
         step: nodeName,
-        status: lastExecution.error ? 'error' : 'completed',
+        status: (lastExecution.error ? 'error' : 'completed') as 'error' | 'pending' | 'running' | 'completed',
         timestamp: lastExecution.startTime || lastExecution.executionTime
       })
     }
