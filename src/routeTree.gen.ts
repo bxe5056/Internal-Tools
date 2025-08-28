@@ -29,6 +29,7 @@ import { Route as PathlessLayoutNestedLayoutRouteARouteImport } from './routes/_
 import { ServerRoute as CustomScriptDotjsServerRouteImport } from './routes/customScript[.]js'
 import { ServerRoute as ApiWebhookServerRouteImport } from './routes/api/webhook'
 import { ServerRoute as ApiUsersServerRouteImport } from './routes/api/users'
+import { ServerRoute as ApiWorkflowStatusExecutionIdServerRouteImport } from './routes/api/workflow-status.$executionId'
 import { ServerRoute as ApiUsersUserIdServerRouteImport } from './routes/api/users.$userId'
 
 const rootServerRouteImport = createServerRootRoute()
@@ -124,6 +125,12 @@ const ApiUsersServerRoute = ApiUsersServerRouteImport.update({
   path: '/api/users',
   getParentRoute: () => rootServerRouteImport,
 } as any)
+const ApiWorkflowStatusExecutionIdServerRoute =
+  ApiWorkflowStatusExecutionIdServerRouteImport.update({
+    id: '/api/workflow-status/$executionId',
+    path: '/api/workflow-status/$executionId',
+    getParentRoute: () => rootServerRouteImport,
+  } as any)
 const ApiUsersUserIdServerRoute = ApiUsersUserIdServerRouteImport.update({
   id: '/$userId',
   path: '/$userId',
@@ -239,12 +246,14 @@ export interface FileServerRoutesByFullPath {
   '/api/users': typeof ApiUsersServerRouteWithChildren
   '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
+  '/api/workflow-status/$executionId': typeof ApiWorkflowStatusExecutionIdServerRoute
 }
 export interface FileServerRoutesByTo {
   '/customScript.js': typeof CustomScriptDotjsServerRoute
   '/api/users': typeof ApiUsersServerRouteWithChildren
   '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
+  '/api/workflow-status/$executionId': typeof ApiWorkflowStatusExecutionIdServerRoute
 }
 export interface FileServerRoutesById {
   __root__: typeof rootServerRouteImport
@@ -252,6 +261,7 @@ export interface FileServerRoutesById {
   '/api/users': typeof ApiUsersServerRouteWithChildren
   '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
+  '/api/workflow-status/$executionId': typeof ApiWorkflowStatusExecutionIdServerRoute
 }
 export interface FileServerRouteTypes {
   fileServerRoutesByFullPath: FileServerRoutesByFullPath
@@ -260,20 +270,28 @@ export interface FileServerRouteTypes {
     | '/api/users'
     | '/api/webhook'
     | '/api/users/$userId'
+    | '/api/workflow-status/$executionId'
   fileServerRoutesByTo: FileServerRoutesByTo
-  to: '/customScript.js' | '/api/users' | '/api/webhook' | '/api/users/$userId'
+  to:
+    | '/customScript.js'
+    | '/api/users'
+    | '/api/webhook'
+    | '/api/users/$userId'
+    | '/api/workflow-status/$executionId'
   id:
     | '__root__'
     | '/customScript.js'
     | '/api/users'
     | '/api/webhook'
     | '/api/users/$userId'
+    | '/api/workflow-status/$executionId'
   fileServerRoutesById: FileServerRoutesById
 }
 export interface RootServerRouteChildren {
   CustomScriptDotjsServerRoute: typeof CustomScriptDotjsServerRoute
   ApiUsersServerRoute: typeof ApiUsersServerRouteWithChildren
   ApiWebhookServerRoute: typeof ApiWebhookServerRoute
+  ApiWorkflowStatusExecutionIdServerRoute: typeof ApiWorkflowStatusExecutionIdServerRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -408,6 +426,13 @@ declare module '@tanstack/react-start/server' {
       preLoaderRoute: typeof ApiUsersServerRouteImport
       parentRoute: typeof rootServerRouteImport
     }
+    '/api/workflow-status/$executionId': {
+      id: '/api/workflow-status/$executionId'
+      path: '/api/workflow-status/$executionId'
+      fullPath: '/api/workflow-status/$executionId'
+      preLoaderRoute: typeof ApiWorkflowStatusExecutionIdServerRouteImport
+      parentRoute: typeof rootServerRouteImport
+    }
     '/api/users/$userId': {
       id: '/api/users/$userId'
       path: '/$userId'
@@ -501,6 +526,8 @@ const rootServerRouteChildren: RootServerRouteChildren = {
   CustomScriptDotjsServerRoute: CustomScriptDotjsServerRoute,
   ApiUsersServerRoute: ApiUsersServerRouteWithChildren,
   ApiWebhookServerRoute: ApiWebhookServerRoute,
+  ApiWorkflowStatusExecutionIdServerRoute:
+    ApiWorkflowStatusExecutionIdServerRoute,
 }
 export const serverRouteTree = rootServerRouteImport
   ._addFileChildren(rootServerRouteChildren)

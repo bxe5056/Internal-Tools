@@ -51,11 +51,22 @@ interface PrintJob {
     pro: string
     con: string
   }
+  // Workflow execution tracking
+  executionId?: string
+  workflowStatus?: 'running' | 'success' | 'error' | 'waiting' | 'unknown'
+  currentStep?: string
+  workflowSteps?: Array<{
+    step: string
+    status: 'completed' | 'running' | 'pending' | 'error'
+    timestamp?: string
+  }>
+  progress?: number
   resubmissions: {
     timestamp: Date
     type: 'n8n' | 'printer'
     status: 'pending' | 'success' | 'error'
     error?: string
+    executionId?: string
   }[]
 }
 
@@ -86,6 +97,10 @@ function WebhookTool() {
   const [toastMessage, setToastMessage] = useState('')
   const [toastType, setToastType] = useState<'success' | 'error'>('success')
   const [showFilterDropdown, setShowFilterDropdown] = useState(false)
+  
+  // Workflow status polling state
+  const [activePollingJobs, setActivePollingJobs] = useState<Set<string>>(new Set())
+  const [pollingIntervals, setPollingIntervals] = useState<Map<string, NodeJS.Timeout>>(new Map())
 
   // Close filter dropdown when clicking outside
   useEffect(() => {
@@ -146,6 +161,102 @@ function WebhookTool() {
       return url.trim()
     }
   }
+
+  // Function to start polling workflow status for a specific execution
+  const startWorkflowPolling = (jobId: string, executionId: string) => {
+    console.log(`Starting workflow polling for job ${jobId}, execution ${executionId}`)
+    
+    // Don't start polling if already active
+    if (activePollingJobs.has(jobId)) {
+      console.log(`Polling already active for job ${jobId}`)
+      return
+    }
+
+    const pollWorkflowStatus = async () => {
+      try {
+        console.log(`Polling workflow status for execution ${executionId}`)
+        const response = await fetch(`/api/workflow-status/${executionId}`)
+        
+        if (!response.ok) {
+          console.error('Failed to fetch workflow status:', response.status)
+          return
+        }
+
+        const { execution } = await response.json()
+        console.log('Received workflow status:', execution)
+
+        // Update the job with workflow status
+        setPrintJobs(prev => prev.map(job => 
+          job.id === jobId ? {
+            ...job,
+            workflowStatus: execution.status,
+            currentStep: execution.currentStep,
+            workflowSteps: execution.steps,
+            progress: execution.progress,
+            lastUpdated: new Date(),
+            error: execution.error
+          } : job
+        ))
+
+        // Stop polling if workflow is complete
+        if (execution.status === 'success' || execution.status === 'error') {
+          console.log(`Workflow ${execution.status} for job ${jobId}, stopping polling`)
+          stopWorkflowPolling(jobId)
+          
+          // Update job status based on workflow result
+          setPrintJobs(prev => prev.map(job => 
+            job.id === jobId ? {
+              ...job,
+              jobStatus: execution.status === 'success' ? 'success' : 'error',
+              resubmissions: job.resubmissions.map((r, index) =>
+                index === job.resubmissions.length - 1 && r.status === 'pending'
+                  ? { ...r, status: execution.status === 'success' ? 'success' : 'error' }
+                  : r
+              )
+            } : job
+          ))
+        }
+      } catch (error) {
+        console.error('Error polling workflow status:', error)
+      }
+    }
+
+    // Start immediate poll, then every 3 seconds
+    pollWorkflowStatus()
+    const interval = setInterval(pollWorkflowStatus, 3000)
+    
+    // Track polling state
+    setActivePollingJobs(prev => new Set([...prev, jobId]))
+    setPollingIntervals(prev => new Map([...prev, [jobId, interval]]))
+  }
+
+  // Function to stop polling workflow status
+  const stopWorkflowPolling = (jobId: string) => {
+    console.log(`Stopping workflow polling for job ${jobId}`)
+    
+    const interval = pollingIntervals.get(jobId)
+    if (interval) {
+      clearInterval(interval)
+      setPollingIntervals(prev => {
+        const newMap = new Map(prev)
+        newMap.delete(jobId)
+        return newMap
+      })
+    }
+    
+    setActivePollingJobs(prev => {
+      const newSet = new Set(prev)
+      newSet.delete(jobId)
+      return newSet
+    })
+  }
+
+  // Cleanup polling intervals on component unmount
+  useEffect(() => {
+    return () => {
+      pollingIntervals.forEach(interval => clearInterval(interval))
+    }
+  }, [pollingIntervals])
 
   // Load jobs from receipt printer API after component mounts
   useEffect(() => {
@@ -505,14 +616,56 @@ function WebhookTool() {
         throw new Error(`Failed to submit to n8n: ${response.status}`)
       }
 
+      const result = await response.text()
+      console.log('Print job webhook response:', result)
+      
+      // Extract execution ID from the webhook response
+      // The webhook now returns {{ $execution.id }} directly
+      let executionId: string | null = null
+      try {
+        // First try parsing as JSON in case it's wrapped
+        const jsonResult = JSON.parse(result)
+        executionId = jsonResult.executionId || jsonResult.id || null
+      } catch {
+        // If not JSON, the response should be the execution ID directly
+        const cleanResult = result.trim()
+        // Validate it looks like a UUID (execution ID format)
+        const executionIdMatch = cleanResult.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i)
+        executionId = executionIdMatch ? cleanResult : null
+      }
+      
+      console.log('Extracted execution ID:', executionId)
+      
+      // Update the job with execution ID and start polling if we have one
+      const targetJobId = existingJob?.id || Date.now().toString()
+      if (executionId) {
+        setPrintJobs(prev => prev.map(job => 
+          job.id === targetJobId ? {
+            ...job,
+            executionId,
+            workflowStatus: 'running',
+            currentStep: 'Initializing workflow...',
+            progress: 10,
+            resubmissions: job.resubmissions.map((r, index) =>
+              index === job.resubmissions.length - 1 && r.status === 'pending'
+                ? { ...r, executionId }
+                : r
+            )
+          } : job
+        ))
+        
+        // Start polling for workflow status updates
+        startWorkflowPolling(targetJobId, executionId)
+      }
+
       setUrl('')
       // Show toast notification instead of setting result
       showToastNotification('Job submitted successfully! It will appear in the job history below.', 'success')
       
-      // Trigger an immediate status update to get the latest data
+      // Trigger an immediate status update to get the latest data (but don't wait as long if we're polling)
       setTimeout(() => {
         updateJobStatuses()
-      }, 2000) // Wait 2 seconds for n8n to process
+      }, executionId ? 5000 : 2000) // Wait longer if we're polling, shorter if not
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit print job to n8n'
       setError(errorMessage)
@@ -1484,6 +1637,21 @@ function WebhookTool() {
                                    '⏳ Pending'}
                                 </span>
                               )}
+                              
+                              {/* Workflow Status Badge */}
+                              {job.workflowStatus && (
+                                <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${
+                                  job.workflowStatus === 'success' ? 'bg-emerald-100 text-emerald-800' :
+                                  job.workflowStatus === 'error' ? 'bg-rose-100 text-rose-800' :
+                                  job.workflowStatus === 'running' ? 'bg-blue-100 text-blue-800' :
+                                  'bg-gray-100 text-gray-800'
+                                }`}>
+                                  {job.workflowStatus === 'success' ? '✓ Workflow Complete' :
+                                   job.workflowStatus === 'error' ? '✗ Workflow Failed' :
+                                   job.workflowStatus === 'running' ? '🔄 Processing' :
+                                   '⏸ Workflow ' + job.workflowStatus}
+                                </span>
+                              )}
                                 
                                 {/* Job Details Pills */}
                                 {job.rating && (
@@ -1502,6 +1670,56 @@ function WebhookTool() {
                                       )}
                                     </div>
                           </div>
+                          
+                          {/* Workflow Progress Section */}
+                          {job.workflowStatus === 'running' && (
+                            <div className="mt-4 px-6 pb-4">
+                              <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                                <div className="flex items-center justify-between mb-2">
+                                  <span className="text-sm font-medium text-blue-800">
+                                    Workflow Progress
+                                  </span>
+                                  <span className="text-xs text-blue-600">
+                                    {job.progress || 0}%
+                                  </span>
+                                </div>
+                                <div className="w-full bg-blue-200 rounded-full h-2 mb-3">
+                                  <div 
+                                    className="bg-blue-600 h-2 rounded-full transition-all duration-500" 
+                                    style={{width: `${job.progress || 0}%`}}
+                                  ></div>
+                                </div>
+                                {job.currentStep && (
+                                  <div className="text-sm text-blue-700">
+                                    <span className="inline-block animate-pulse mr-2">⚙️</span>
+                                    {job.currentStep}
+                                  </div>
+                                )}
+                                {job.workflowSteps && job.workflowSteps.length > 0 && (
+                                  <div className="mt-3 space-y-1">
+                                    {job.workflowSteps.slice(-3).map((step, stepIndex) => (
+                                      <div key={stepIndex} className="flex items-center text-xs">
+                                        <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                                          step.status === 'completed' ? 'bg-green-500' :
+                                          step.status === 'running' ? 'bg-blue-500 animate-pulse' :
+                                          step.status === 'error' ? 'bg-red-500' :
+                                          'bg-gray-300'
+                                        }`}></span>
+                                        <span className={`${
+                                          step.status === 'completed' ? 'text-green-700' :
+                                          step.status === 'running' ? 'text-blue-700' :
+                                          step.status === 'error' ? 'text-red-700' :
+                                          'text-gray-600'
+                                        }`}>
+                                          {step.step}
+                                        </span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           
                             {/* Action Buttons */}
                             <div className="flex gap-2 ml-6">
