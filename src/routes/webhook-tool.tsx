@@ -132,6 +132,21 @@ function WebhookTool() {
     }
   }, [])
 
+  // Function to normalize URLs for consistent matching
+  const normalizeUrl = (url: string): string => {
+    try {
+      // Remove leading/trailing whitespace and common variations
+      const cleaned = url.trim()
+      // Decode any URL encoding to get the raw URL
+      const decoded = decodeURIComponent(cleaned)
+      // Remove trailing slash for consistency
+      return decoded.endsWith('/') ? decoded.slice(0, -1) : decoded
+    } catch (error) {
+      // If URL decoding fails, just return the trimmed original
+      return url.trim()
+    }
+  }
+
   // Load jobs from receipt printer API after component mounts
   useEffect(() => {
     console.log('Loading jobs from receipt printer API...')
@@ -168,15 +183,22 @@ function WebhookTool() {
           setPrintJobs(prevJobs => {
             console.log('Previous jobs from state:', prevJobs)
             
-            // Create a map of existing jobs by URL for easy lookup
-            const existingJobsMap = new Map(prevJobs.map(job => [job.url, job]))
+            // Create a map of existing jobs by normalized URL for better matching
+            const existingJobsMap = new Map(prevJobs.map(job => [normalizeUrl(job.url), job]))
+            
+            console.log('Existing jobs URL map:', Array.from(existingJobsMap.keys()))
             
             // Process each job from the receipt printer API
             const updatedJobs = jobsArray.map((remoteJob) => {
-              const existingJob = existingJobsMap.get(remoteJob.url)
+              const normalizedRemoteUrl = normalizeUrl(remoteJob.url)
+              const existingJob = existingJobsMap.get(normalizedRemoteUrl)
+              
+              console.log(`Matching remote job URL "${remoteJob.url}" (normalized: "${normalizedRemoteUrl}") with existing jobs`)
               
               if (existingJob) {
+                console.log(`✅ Found match! Updating existing job ${existingJob.id} with API data`)
                 // Update existing job with data from receipt printer
+                // CRITICAL: Preserve local job ID and submittedAt date
                 return {
                   ...existingJob,
                   // Update with the full job data from receipt printer
@@ -191,10 +213,18 @@ function WebhookTool() {
                   lastUpdated: new Date(),
                   error: remoteJob.error,
                   jobStatus: remoteJob.jobStatus,
-                  // Keep existing resubmissions
-                  resubmissions: existingJob.resubmissions || []
+                  // IMPORTANT: Preserve local job ID and submittedAt to maintain consistency and sort order
+                  id: existingJob.id,
+                  submittedAt: existingJob.submittedAt,
+                  // Keep existing resubmissions and mark latest as completed
+                  resubmissions: existingJob.resubmissions.map((r, index) => 
+                    index === existingJob.resubmissions.length - 1 && r.status === 'pending'
+                      ? { ...r, status: (remoteJob.jobStatus === 'success' ? 'success' : remoteJob.jobStatus === 'error' ? 'error' : 'pending') as 'success' | 'error' | 'pending' }
+                      : r
+                  )
                 }
               } else {
+                console.log(`❌ No match found for remote job URL "${normalizedRemoteUrl}"`)
                 // This is a new job from the receipt printer that we don't have locally
                 return {
                   ...remoteJob,
@@ -205,10 +235,14 @@ function WebhookTool() {
             
             // Add any local jobs that aren't in the receipt printer API yet
             const localJobsNotInAPI = prevJobs.filter(job => 
-              !jobsArray.some((remoteJob) => remoteJob.url === job.url)
+              !jobsArray.some((remoteJob) => normalizeUrl(remoteJob.url) === normalizeUrl(job.url))
             )
             
+            console.log(`Found ${localJobsNotInAPI.length} local jobs not in API yet:`, localJobsNotInAPI.map(j => ({ id: j.id, url: j.url })))
+            
+            // Combine all jobs and sort by submittedAt (newest first) to maintain proper order
             const finalJobs = [...updatedJobs, ...localJobsNotInAPI]
+              .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())
             console.log('Final merged jobs:', finalJobs)
             return finalJobs
           })
@@ -413,13 +447,15 @@ function WebhookTool() {
     setError(null)
 
          try {
-       // Check if a job with this URL already exists
-       const existingJob = printJobs.find(job => job.url === url.trim())
+       // Check if a job with this URL already exists (using normalized URL matching)
+       const normalizedUrl = normalizeUrl(url)
+       const existingJob = printJobs.find(job => normalizeUrl(job.url) === normalizedUrl)
        
        if (existingJob) {
          // Update existing job instead of creating a new one
+         console.log('Updating existing job for URL:', normalizedUrl)
          setPrintJobs(prev => prev.map(job => 
-           job.url === url.trim() 
+           normalizeUrl(job.url) === normalizedUrl 
              ? {
                  ...job,
                  lastUpdated: new Date(),
@@ -450,6 +486,7 @@ function WebhookTool() {
              status: 'pending'
            }]
          }
+         console.log('Creating new job:', { id: newJob.id, url: newJob.url, normalizedUrl: normalizedUrl })
          setPrintJobs(prev => [newJob, ...prev])
        }
 
