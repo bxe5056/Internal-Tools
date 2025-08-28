@@ -51,32 +51,32 @@ steps:
       branch:
         - main
 
-  # Step 4: Deploy to your NAS (optional - customize based on your setup)
-  - name: deploy
-    image: appleboy/drone-ssh
-    settings:
-      host:
-        from_secret: nas_host
-      username:
-        from_secret: nas_username
-      key:
-        from_secret: nas_ssh_key
-      port: 22
-      envs:
-        - CORE_API_TOKEN
-      script:
-        - cd /path/to/your/deployment/directory
-        - echo "CORE_API_TOKEN=$CORE_API_TOKEN" > .env
-        - docker compose pull
-        - docker compose up -d
-    environment:
-      CORE_API_TOKEN:
-        from_secret: coreAPIToken
-    depends_on:
-      - docker-build
-    when:
-      branch:
-        - main
+  # Step 4: Deploy to your NAS (disabled - deploy manually via Unraid)
+  # - name: deploy
+  #   image: appleboy/drone-ssh
+  #   settings:
+  #     host:
+  #       from_secret: nas_host
+  #     username:
+  #       from_secret: nas_username
+  #     key:
+  #       from_secret: nas_ssh_key
+  #     port: 22
+  #     envs:
+  #       - CORE_API_TOKEN
+  #     script:
+  #       - cd /path/to/your/deployment/directory
+  #       - echo "CORE_API_TOKEN=$CORE_API_TOKEN" > .env
+  #       - docker compose pull
+  #       - docker compose up -d
+  #   environment:
+  #     CORE_API_TOKEN:
+  #       from_secret: coreAPIToken
+  #   depends_on:
+  #     - docker-build
+  #   when:
+  #     branch:
+  #       - main
 
 # Trigger conditions
 trigger:
