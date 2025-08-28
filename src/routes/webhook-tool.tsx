@@ -115,6 +115,18 @@ function WebhookTool() {
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [showFilterDropdown])
 
+  // Handle Escape key to close delete confirmation modal
+  useEffect(() => {
+    const handleEscapeKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && jobToRemove) {
+        setJobToRemove(null)
+      }
+    }
+
+    document.addEventListener('keydown', handleEscapeKey)
+    return () => document.removeEventListener('keydown', handleEscapeKey)
+  }, [jobToRemove])
+
   // Load existing jobs from localStorage on component mount
   useEffect(() => {
     console.log('Component mounted, loading jobs...')
@@ -1461,36 +1473,44 @@ function WebhookTool() {
 
                 {/* Individual Job Removal Confirmation Dialog */}
                 {jobToRemove && (
-                  <div className="mb-6 bg-red-50 border-2 border-red-200 rounded-xl p-6">
-                    <div className="flex items-start gap-4">
-                      <div className="flex-shrink-0">
-                        <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                          <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
-                          </svg>
-                        </div>
-                      </div>
-                      <div className="flex-1">
-                        <h4 className="text-lg font-semibold text-red-800 mb-3">Confirm Remove Job</h4>
-                        <p className="text-red-700 mb-4">
-                          Are you sure you want to remove this job? This action cannot be undone and will remove the job from both the frontend and backend.
-                        </p>
-                        <div className="flex gap-3">
-                          <button
-                            onClick={() => removeJob(jobToRemove)}
-                            className="px-4 py-2.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 bg-red-600 text-white hover:bg-red-700 shadow-sm"
-                          >
-                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                  <div 
+                    className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50"
+                    onClick={() => setJobToRemove(null)}
+                  >
+                    <div 
+                      className="bg-white rounded-xl shadow-2xl max-w-md mx-4 p-6 animate-fadeIn"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="flex items-start gap-4">
+                        <div className="flex-shrink-0">
+                          <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                            <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
                             </svg>
-                            Yes, Remove Job
-                          </button>
-                          <button
-                            onClick={() => setJobToRemove(null)}
-                            className="px-4 py-2.5 text-sm font-medium rounded-md transition-colors bg-gray-600 text-white hover:bg-gray-700 shadow-sm"
-                          >
-                            Cancel
-                          </button>
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <h4 className="text-xl font-semibold text-gray-900 mb-3">Confirm Remove Job</h4>
+                          <p className="text-gray-600 mb-6">
+                            Are you sure you want to remove this job? This action cannot be undone and will remove the job from both the frontend and backend.
+                          </p>
+                          <div className="flex gap-3 justify-end">
+                            <button
+                              onClick={() => setJobToRemove(null)}
+                              className="px-4 py-2.5 text-sm font-medium rounded-md transition-colors bg-gray-200 text-gray-800 hover:bg-gray-300 shadow-sm"
+                            >
+                              Cancel
+                            </button>
+                            <button
+                              onClick={() => removeJob(jobToRemove)}
+                              className="px-4 py-2.5 text-sm font-medium rounded-md transition-colors flex items-center gap-2 bg-red-600 text-white hover:bg-red-700 shadow-sm"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                              </svg>
+                              Yes, Remove Job
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>
@@ -1576,7 +1596,11 @@ function WebhookTool() {
                     {filteredJobs.map((job, index) => (
                       <div 
                         key={job.id} 
-                        className="bg-white rounded-xl border border-gray-200 shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden animate-slideIn"
+                        className={`rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden animate-slideIn ${
+                          jobToRemove === job.id 
+                            ? 'bg-red-50 border-2 border-red-300 ring-2 ring-red-200' 
+                            : 'bg-white border border-gray-200'
+                        }`}
                         style={{
                           animationDelay: `${index * 0.05}s`,
                           animationFillMode: 'both'
@@ -1775,7 +1799,12 @@ function WebhookTool() {
                             
                             <button
                                 onClick={() => setJobToRemove(job.id)}
-                                className="px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 bg-red-600 text-white hover:bg-red-700 shadow-sm"
+                                disabled={jobToRemove !== null}
+                                className={`px-3 py-2 text-sm font-medium rounded-md transition-colors flex items-center gap-1.5 shadow-sm ${
+                                  jobToRemove !== null 
+                                    ? 'bg-gray-400 text-gray-200 cursor-not-allowed' 
+                                    : 'bg-red-600 text-white hover:bg-red-700'
+                                }`}
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
