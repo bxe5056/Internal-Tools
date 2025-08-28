@@ -11,9 +11,9 @@ export const ServerRoute = createServerFileRoute('/api/workflow-status/$executio
       }
 
       // Environment variable is available on the server side
-      const authToken = process.env.coreAPIToken
-      if (!authToken) {
-        return json({ error: 'API token not configured' }, { status: 500 })
+      const n8nApiKey = process.env.N8N_API_KEY
+      if (!n8nApiKey) {
+        return json({ error: 'N8N API key not configured' }, { status: 500 })
       }
 
       // Use the v1 API to get workflow execution status
@@ -22,14 +22,14 @@ export const ServerRoute = createServerFileRoute('/api/workflow-status/$executio
       console.log('Checking workflow status:', {
         statusUrl,
         executionId,
-        hasAuthToken: !!authToken
+        hasN8nApiKey: !!n8nApiKey
       })
 
       // Fetch execution details from the v1 API
       const response = await fetch(statusUrl, {
         method: 'GET',
         headers: {
-          'Authorization': authToken,
+          'X-N8N-API-KEY': n8nApiKey,
           'Content-Type': 'application/json'
         }
       })

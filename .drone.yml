@@ -104,6 +104,7 @@ steps:
             -e NODE_ENV=production \
             -e PORT=3000 \
             -e coreAPIToken="$CORE_API_TOKEN" \
+            -e N8N_API_KEY="$N8N_API_KEY" \
             --env-file /mnt/user/appdata/internal-tools/.env \
             --health-cmd="node -e \"require('http').get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })\"" \
             --health-interval=30s \
@@ -116,6 +117,8 @@ steps:
     environment:
       CORE_API_TOKEN:
         from_secret: coreAPIToken
+      N8N_API_KEY:
+        from_secret: n8nAPIKey
     depends_on:
       - docker-build
     when:
@@ -138,4 +141,5 @@ trigger:
 # - nas_host
 # - nas_username
 # - nas_ssh_key
-# - coreAPIToken (your Basic auth token for API calls)
+# - coreAPIToken (your Basic auth token for webhook API calls)
+# - n8nAPIKey (your n8n API key for v1 API access)

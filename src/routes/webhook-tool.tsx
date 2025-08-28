@@ -324,9 +324,9 @@ function WebhookTool() {
                   lastUpdated: new Date(),
                   error: remoteJob.error,
                   jobStatus: remoteJob.jobStatus,
-                  // IMPORTANT: Preserve local job ID and submittedAt to maintain consistency and sort order
-                  id: existingJob.id,
-                  submittedAt: existingJob.submittedAt,
+                  // IMPORTANT: Update to backend ID for proper deletion, but preserve submittedAt for sort order
+                  id: remoteJob.id, // Use backend ID for API operations
+                  submittedAt: existingJob.submittedAt, // Preserve local submission time for sorting
                   // Keep existing resubmissions and mark latest as completed
                   resubmissions: existingJob.resubmissions.map((r, index) => 
                     index === existingJob.resubmissions.length - 1 && r.status === 'pending'
@@ -637,7 +637,8 @@ function WebhookTool() {
       console.log('Extracted execution ID:', executionId)
       
       // Update the job with execution ID and start polling if we have one
-      const targetJobId = existingJob?.id || Date.now().toString()
+      // Use the existing job ID or create a new timestamp-based ID for new jobs
+      const targetJobId = existingJob?.id || newJob.id
       if (executionId) {
         setPrintJobs(prev => prev.map(job => 
           job.id === targetJobId ? {
@@ -655,6 +656,7 @@ function WebhookTool() {
         ))
         
         // Start polling for workflow status updates
+        console.log(`Starting workflow polling for job ${targetJobId} with execution ${executionId}`)
         startWorkflowPolling(targetJobId, executionId)
       }
 
@@ -835,27 +837,49 @@ function WebhookTool() {
 
   const removeJob = async (jobId: string) => {
     try {
+      console.log('Attempting to remove job with ID:', jobId)
+      
       // Call the DELETE endpoint to remove the job from the backend
       const response = await fetch(`https://receipts.bentheitguy.me/jobs/${jobId}`, {
         method: 'DELETE',
       })
       
+      console.log('Delete response status:', response.status)
+      
       if (response.ok) {
         // Job successfully removed from backend, now remove from local state
-    setPrintJobs(prev => prev.filter(job => job.id !== jobId))
-        console.log('Job removed successfully')
-        setJobToRemove(null) // Hide confirmation dialog
-      } else {
-        console.error('Failed to remove job from backend:', response.status, response.statusText)
-        // Still remove from local state to maintain UI consistency
         setPrintJobs(prev => prev.filter(job => job.id !== jobId))
+        console.log('Job removed successfully from both backend and frontend')
         setJobToRemove(null) // Hide confirmation dialog
+        showToastNotification('Job removed successfully', 'success')
+        
+        // Stop any active polling for this job
+        stopWorkflowPolling(jobId)
+      } else {
+        const errorText = await response.text()
+        console.error('Failed to remove job from backend:', response.status, response.statusText, errorText)
+        
+        // If it's a 404, the job might already be deleted from backend
+        if (response.status === 404) {
+          setPrintJobs(prev => prev.filter(job => job.id !== jobId))
+          setJobToRemove(null)
+          showToastNotification('Job removed (already deleted from backend)', 'success')
+          stopWorkflowPolling(jobId)
+        } else {
+          // For other errors, show the error but still remove from local state
+          setPrintJobs(prev => prev.filter(job => job.id !== jobId))
+          setJobToRemove(null)
+          showToastNotification(`Job removed from frontend (backend error: ${response.status})`, 'success')
+          stopWorkflowPolling(jobId)
+        }
       }
     } catch (error) {
       console.error('Error removing job:', error)
       // Remove from local state even if backend call fails
       setPrintJobs(prev => prev.filter(job => job.id !== jobId))
-      setJobToRemove(null) // Hide confirmation dialog
+      setJobToRemove(null)
+      showToastNotification('Job removed from frontend (network error)', 'success')
+      stopWorkflowPolling(jobId)
     }
   }
 
