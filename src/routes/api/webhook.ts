@@ -1,26 +1,20 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { createAPIFileRoute } from '@tanstack/start/api'
+import { createServerFileRoute } from '@tanstack/react-start/server'
+import { json } from '@tanstack/react-start'
 
-export const Route = createAPIFileRoute('/api/webhook')({
+export const ServerRoute = createServerFileRoute('/api/webhook').methods({
   POST: async ({ request }) => {
     try {
       const body = await request.json()
       const { url, status } = body
 
       if (!url || !status) {
-        return new Response(JSON.stringify({ error: 'URL and status are required' }), {
-          status: 400,
-          headers: { 'Content-Type': 'application/json' }
-        })
+        return json({ error: 'URL and status are required' }, { status: 400 })
       }
 
       // Environment variable is available on the server side
       const authToken = process.env.coreAPIToken
       if (!authToken) {
-        return new Response(JSON.stringify({ error: 'API token not configured' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        })
+        return json({ error: 'API token not configured' }, { status: 500 })
       }
 
       // Encode the URL for the query parameter
@@ -46,35 +40,26 @@ export const Route = createAPIFileRoute('/api/webhook')({
       if (!response.ok) {
         const errorText = await response.text()
         console.error('Webhook error:', response.status, errorText)
-        return new Response(JSON.stringify({ 
+        return json({ 
           error: `Webhook failed: ${response.status} ${response.statusText}`,
           details: errorText
-        }), {
-          status: response.status,
-          headers: { 'Content-Type': 'application/json' }
-        })
+        }, { status: response.status })
       }
 
       const result = await response.text()
-      return new Response(JSON.stringify({ 
+      return json({ 
         success: true,
         message: `Job ${status} successfully!`,
         data: result
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' }
       })
 
     } catch (error) {
       console.error('Webhook API error:', error)
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      return new Response(JSON.stringify({ 
+      return json({ 
         error: 'Internal server error',
         details: errorMessage
-      }), {
-        status: 500,
-        headers: { 'Content-Type': 'application/json' }
-      })
+      }, { status: 500 })
     }
   }
 })

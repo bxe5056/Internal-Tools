@@ -22,12 +22,12 @@ import { Route as UsersIndexRouteImport } from './routes/users.index'
 import { Route as PostsIndexRouteImport } from './routes/posts.index'
 import { Route as UsersUserIdRouteImport } from './routes/users.$userId'
 import { Route as PostsPostIdRouteImport } from './routes/posts.$postId'
-import { Route as ApiWebhookRouteImport } from './routes/api/webhook'
 import { Route as PathlessLayoutNestedLayoutRouteImport } from './routes/_pathlessLayout/_nested-layout'
 import { Route as PostsPostIdDeepRouteImport } from './routes/posts_.$postId.deep'
 import { Route as PathlessLayoutNestedLayoutRouteBRouteImport } from './routes/_pathlessLayout/_nested-layout/route-b'
 import { Route as PathlessLayoutNestedLayoutRouteARouteImport } from './routes/_pathlessLayout/_nested-layout/route-a'
 import { ServerRoute as CustomScriptDotjsServerRouteImport } from './routes/customScript[.]js'
+import { ServerRoute as ApiWebhookServerRouteImport } from './routes/api/webhook'
 import { ServerRoute as ApiUsersServerRouteImport } from './routes/api/users'
 import { ServerRoute as ApiUsersUserIdServerRouteImport } from './routes/api/users.$userId'
 
@@ -87,11 +87,6 @@ const PostsPostIdRoute = PostsPostIdRouteImport.update({
   path: '/$postId',
   getParentRoute: () => PostsRoute,
 } as any)
-const ApiWebhookRoute = ApiWebhookRouteImport.update({
-  id: '/api/webhook',
-  path: '/api/webhook',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const PathlessLayoutNestedLayoutRoute =
   PathlessLayoutNestedLayoutRouteImport.update({
     id: '/_nested-layout',
@@ -119,6 +114,11 @@ const CustomScriptDotjsServerRoute = CustomScriptDotjsServerRouteImport.update({
   path: '/customScript.js',
   getParentRoute: () => rootServerRouteImport,
 } as any)
+const ApiWebhookServerRoute = ApiWebhookServerRouteImport.update({
+  id: '/api/webhook',
+  path: '/api/webhook',
+  getParentRoute: () => rootServerRouteImport,
+} as any)
 const ApiUsersServerRoute = ApiUsersServerRouteImport.update({
   id: '/api/users',
   path: '/api/users',
@@ -137,7 +137,6 @@ export interface FileRoutesByFullPath {
   '/redirect': typeof RedirectRoute
   '/users': typeof UsersRouteWithChildren
   '/webhook-tool': typeof WebhookToolRoute
-  '/api/webhook': typeof ApiWebhookRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/users/$userId': typeof UsersUserIdRoute
   '/posts/': typeof PostsIndexRoute
@@ -151,7 +150,6 @@ export interface FileRoutesByTo {
   '/deferred': typeof DeferredRoute
   '/redirect': typeof RedirectRoute
   '/webhook-tool': typeof WebhookToolRoute
-  '/api/webhook': typeof ApiWebhookRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/users/$userId': typeof UsersUserIdRoute
   '/posts': typeof PostsIndexRoute
@@ -170,7 +168,6 @@ export interface FileRoutesById {
   '/users': typeof UsersRouteWithChildren
   '/webhook-tool': typeof WebhookToolRoute
   '/_pathlessLayout/_nested-layout': typeof PathlessLayoutNestedLayoutRouteWithChildren
-  '/api/webhook': typeof ApiWebhookRoute
   '/posts/$postId': typeof PostsPostIdRoute
   '/users/$userId': typeof UsersUserIdRoute
   '/posts/': typeof PostsIndexRoute
@@ -188,7 +185,6 @@ export interface FileRouteTypes {
     | '/redirect'
     | '/users'
     | '/webhook-tool'
-    | '/api/webhook'
     | '/posts/$postId'
     | '/users/$userId'
     | '/posts/'
@@ -202,7 +198,6 @@ export interface FileRouteTypes {
     | '/deferred'
     | '/redirect'
     | '/webhook-tool'
-    | '/api/webhook'
     | '/posts/$postId'
     | '/users/$userId'
     | '/posts'
@@ -220,7 +215,6 @@ export interface FileRouteTypes {
     | '/users'
     | '/webhook-tool'
     | '/_pathlessLayout/_nested-layout'
-    | '/api/webhook'
     | '/posts/$postId'
     | '/users/$userId'
     | '/posts/'
@@ -238,36 +232,48 @@ export interface RootRouteChildren {
   RedirectRoute: typeof RedirectRoute
   UsersRoute: typeof UsersRouteWithChildren
   WebhookToolRoute: typeof WebhookToolRoute
-  ApiWebhookRoute: typeof ApiWebhookRoute
   PostsPostIdDeepRoute: typeof PostsPostIdDeepRoute
 }
 export interface FileServerRoutesByFullPath {
   '/customScript.js': typeof CustomScriptDotjsServerRoute
   '/api/users': typeof ApiUsersServerRouteWithChildren
+  '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
 }
 export interface FileServerRoutesByTo {
   '/customScript.js': typeof CustomScriptDotjsServerRoute
   '/api/users': typeof ApiUsersServerRouteWithChildren
+  '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
 }
 export interface FileServerRoutesById {
   __root__: typeof rootServerRouteImport
   '/customScript.js': typeof CustomScriptDotjsServerRoute
   '/api/users': typeof ApiUsersServerRouteWithChildren
+  '/api/webhook': typeof ApiWebhookServerRoute
   '/api/users/$userId': typeof ApiUsersUserIdServerRoute
 }
 export interface FileServerRouteTypes {
   fileServerRoutesByFullPath: FileServerRoutesByFullPath
-  fullPaths: '/customScript.js' | '/api/users' | '/api/users/$userId'
+  fullPaths:
+    | '/customScript.js'
+    | '/api/users'
+    | '/api/webhook'
+    | '/api/users/$userId'
   fileServerRoutesByTo: FileServerRoutesByTo
-  to: '/customScript.js' | '/api/users' | '/api/users/$userId'
-  id: '__root__' | '/customScript.js' | '/api/users' | '/api/users/$userId'
+  to: '/customScript.js' | '/api/users' | '/api/webhook' | '/api/users/$userId'
+  id:
+    | '__root__'
+    | '/customScript.js'
+    | '/api/users'
+    | '/api/webhook'
+    | '/api/users/$userId'
   fileServerRoutesById: FileServerRoutesById
 }
 export interface RootServerRouteChildren {
   CustomScriptDotjsServerRoute: typeof CustomScriptDotjsServerRoute
   ApiUsersServerRoute: typeof ApiUsersServerRouteWithChildren
+  ApiWebhookServerRoute: typeof ApiWebhookServerRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -349,13 +355,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PostsPostIdRouteImport
       parentRoute: typeof PostsRoute
     }
-    '/api/webhook': {
-      id: '/api/webhook'
-      path: '/api/webhook'
-      fullPath: '/api/webhook'
-      preLoaderRoute: typeof ApiWebhookRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_pathlessLayout/_nested-layout': {
       id: '/_pathlessLayout/_nested-layout'
       path: ''
@@ -393,6 +392,13 @@ declare module '@tanstack/react-start/server' {
       path: '/customScript.js'
       fullPath: '/customScript.js'
       preLoaderRoute: typeof CustomScriptDotjsServerRouteImport
+      parentRoute: typeof rootServerRouteImport
+    }
+    '/api/webhook': {
+      id: '/api/webhook'
+      path: '/api/webhook'
+      fullPath: '/api/webhook'
+      preLoaderRoute: typeof ApiWebhookServerRouteImport
       parentRoute: typeof rootServerRouteImport
     }
     '/api/users': {
@@ -486,7 +492,6 @@ const rootRouteChildren: RootRouteChildren = {
   RedirectRoute: RedirectRoute,
   UsersRoute: UsersRouteWithChildren,
   WebhookToolRoute: WebhookToolRoute,
-  ApiWebhookRoute: ApiWebhookRoute,
   PostsPostIdDeepRoute: PostsPostIdDeepRoute,
 }
 export const routeTree = rootRouteImport
@@ -495,6 +500,7 @@ export const routeTree = rootRouteImport
 const rootServerRouteChildren: RootServerRouteChildren = {
   CustomScriptDotjsServerRoute: CustomScriptDotjsServerRoute,
   ApiUsersServerRoute: ApiUsersServerRouteWithChildren,
+  ApiWebhookServerRoute: ApiWebhookServerRoute,
 }
 export const serverRouteTree = rootServerRouteImport
   ._addFileChildren(rootServerRouteChildren)
