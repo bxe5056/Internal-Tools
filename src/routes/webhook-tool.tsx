@@ -137,7 +137,7 @@ function WebhookTool() {
     console.log('Loading jobs from receipt printer API...')
     const loadJobsFromAPI = async () => {
       try {
-        const response = await fetch('http://receipt-printer:8000/jobs')
+        const response = await fetch('https://receipts.bentheitguy.me/jobs')
         if (response.ok) {
           const jobsData = await response.json()
           console.log('Received jobs from API:', jobsData)
@@ -249,7 +249,7 @@ function WebhookTool() {
 
   const updateJobStatuses = useCallback(async () => {
     try {
-      const response = await fetch('http://receipt-printer:8000/jobs')
+      const response = await fetch('https://receipts.bentheitguy.me/jobs')
       if (response.ok) {
         const jobsData = await response.json()
         
@@ -567,7 +567,7 @@ function WebhookTool() {
       ))
 
       // Send directly to receipt printer
-      const response = await fetch('http://receipt-printer:8000/print/job', {
+      const response = await fetch('https://receipts.bentheitguy.me/print/job', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -647,7 +647,7 @@ function WebhookTool() {
   const removeJob = async (jobId: string) => {
     try {
       // Call the DELETE endpoint to remove the job from the backend
-      const response = await fetch(`http://receipt-printer:8000/jobs/${jobId}`, {
+      const response = await fetch(`https://receipts.bentheitguy.me/jobs/${jobId}`, {
         method: 'DELETE',
       })
       
@@ -673,7 +673,7 @@ function WebhookTool() {
   const clearAllJobs = async () => {
     try {
       // Call the DELETE endpoint to clear all jobs from the backend
-      const response = await fetch('http://receipt-printer:8000/jobs', {
+      const response = await fetch('https://receipts.bentheitguy.me/jobs', {
         method: 'DELETE',
       })
       
@@ -707,7 +707,7 @@ function WebhookTool() {
       // Remove each selected job individually
       for (const jobId of jobIds) {
         try {
-          const response = await fetch(`http://receipt-printer:8000/jobs/${jobId}`, {
+          const response = await fetch(`https://receipts.bentheitguy.me/jobs/${jobId}`, {
             method: 'DELETE',
           })
           
@@ -1100,7 +1100,7 @@ function WebhookTool() {
                         setJobsError(null)
                         const loadJobsFromAPI = async () => {
                           try {
-                            const response = await fetch('http://receipt-printer:8000/jobs')
+                            const response = await fetch('https://receipts.bentheitguy.me/jobs')
                             if (response.ok) {
                               const jobsData = await response.json()
                               console.log('Manual refresh - received jobs from API:', jobsData)
@@ -1813,7 +1813,7 @@ function WebhookTool() {
                     <div className="text-green-800 space-y-2">
                       <p>This tool allows you to manually import job data from the receipt printer's <code className="bg-white px-2 py-1 rounded text-sm font-mono text-green-900">/jobs</code> endpoint.</p>
                       <ul className="list-disc list-inside space-y-1 ml-4">
-                        <li>Copy the JSON response from <code className="bg-white px-1 rounded text-xs font-mono">http://receipt-printer:8000/jobs</code></li>
+                        <li>Copy the JSON response from <code className="bg-white px-1 rounded text-xs font-mono">https://receipts.bentheitguy.me/jobs</code></li>
                         <li>Paste it into the textarea above</li>
                         <li>Click "Import Jobs" to add them to your history</li>
                         <li>Duplicate jobs (by URL) will be automatically filtered out</li>
