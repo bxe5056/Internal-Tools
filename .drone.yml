@@ -59,9 +59,15 @@ steps:
         from_secret: nas_host
       username:
         from_secret: nas_username
-      key:
-        from_secret: nas_ssh_key
+      # Use password authentication
+      password:
+        from_secret: nas_password
+      # Alternative: use SSH key instead
+      # key:
+      #   from_secret: nas_ssh_key
       port: 22
+      timeout: 60s
+      command_timeout: 300s
       envs:
         - CORE_API_TOKEN
       script:
