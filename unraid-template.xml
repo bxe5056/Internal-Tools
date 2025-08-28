@@ -1,0 +1,66 @@
+<?xml version="1.0"?>
+<Container version="2">
+  <Name>internal-tools</Name>
+  <Repository>internal-tools:latest</Repository>
+  <Registry>https://hub.docker.com/</Registry>
+  <Network>bridge</Network>
+  <MyIP/>
+  <Shell>sh</Shell>
+  <Privileged>false</Privileged>
+  <Support>https://github.com/bxe5056/internal-tools</Support>
+  <Project>https://github.com/bxe5056/internal-tools</Project>
+  <Overview>TanStack Start Internal Tools Application with webhook functionality</Overview>
+  <Category>Tools: Utilities</Category>
+  <WebUI>http://[IP]:[PORT:3000]</WebUI>
+  <TemplateURL/>
+  <Icon>https://raw.githubusercontent.com/bxe5056/internal-tools/main/public/favicon.png</Icon>
+  <ExtraParams>--restart=unless-stopped</ExtraParams>
+  <PostArgs/>
+  <CPUset/>
+  <DateInstalled>1640995200</DateInstalled>
+  <DonateText/>
+  <DonateLink/>
+  <Description>TanStack Start Internal Tools Application with webhook functionality</Description>
+  <Networking>
+    <Mode>bridge</Mode>
+    <Publish>
+      <Port>
+        <HostPort>3000</HostPort>
+        <ContainerPort>3000</ContainerPort>
+        <Protocol>tcp</Protocol>
+      </Port>
+    </Publish>
+  </Networking>
+  <Data>
+    <!-- Optional: Add volume mappings if your app needs persistent storage -->
+    <!--
+    <Volume>
+      <HostDir>/mnt/user/appdata/internal-tools/data</HostDir>
+      <ContainerDir>/app/data</ContainerDir>
+      <Mode>rw</Mode>
+    </Volume>
+    -->
+  </Data>
+  <Environment>
+    <Variable>
+      <Value>production</Value>
+      <Name>NODE_ENV</Name>
+      <Mode/>
+    </Variable>
+    <Variable>
+      <Value>3000</Value>
+      <Name>PORT</Name>
+      <Mode/>
+    </Variable>
+    <Variable>
+      <Value></Value>
+      <Name>coreAPIToken</Name>
+      <Mode/>
+    </Variable>
+  </Environment>
+  <Labels/>
+  <Config Name="WebUI Port" Target="3000" Default="3000" Mode="tcp" Description="Port for accessing the web interface" Type="Port" Display="always" Required="true" Mask="false"/>
+  <Config Name="Node Environment" Target="NODE_ENV" Default="production" Mode="" Description="Node.js environment mode" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Application Port" Target="PORT" Default="3000" Mode="" Description="Internal application port" Type="Variable" Display="always" Required="true" Mask="false"/>
+  <Config Name="Core API Token" Target="coreAPIToken" Default="" Mode="" Description="Basic auth token for API authentication - KEEP PRIVATE!" Type="Variable" Display="always" Required="true" Mask="true"/>
+</Container>

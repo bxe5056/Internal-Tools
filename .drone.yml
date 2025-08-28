@@ -1,0 +1,109 @@
+kind: pipeline
+type: docker
+name: internal-tools-pipeline
+
+# Define the build steps
+steps:
+  # Step 1: Install dependencies and build
+  - name: build
+    image: node:18-alpine
+    commands:
+      - npm ci
+      - npm run build
+    volumes:
+      - name: node-cache
+        path: /root/.npm
+    when:
+      branch:
+        - main
+        - develop
+
+  # Step 2: Run tests (if you have any)
+  - name: test
+    image: node:18-alpine
+    commands:
+      - npm ci
+      - npm test --if-present
+    volumes:
+      - name: node-cache
+        path: /root/.npm
+    depends_on:
+      - build
+    when:
+      branch:
+        - main
+        - develop
+
+  # Step 3: Build Docker image
+  - name: docker-build
+    image: plugins/docker
+    settings:
+      repo: internal-tools
+      tags:
+        - latest
+        - ${DRONE_COMMIT_SHA:0:8}
+      dockerfile: Dockerfile
+      context: .
+      # For local registry, uncomment and configure:
+      # registry: your-nas-registry:5000
+      # username:
+      #   from_secret: docker_username
+      # password:
+      #   from_secret: docker_password
+    depends_on:
+      - test
+    when:
+      branch:
+        - main
+
+  # Step 4: Deploy to your NAS (optional - customize based on your setup)
+  - name: deploy
+    image: appleboy/drone-ssh
+    settings:
+      host:
+        from_secret: nas_host
+      username:
+        from_secret: nas_username
+      key:
+        from_secret: nas_ssh_key
+      port: 22
+      envs:
+        - CORE_API_TOKEN
+      script:
+        - cd /path/to/your/deployment/directory
+        - echo "CORE_API_TOKEN=$CORE_API_TOKEN" > .env
+        - docker compose pull
+        - docker compose up -d
+    environment:
+      CORE_API_TOKEN:
+        from_secret: coreAPIToken
+    depends_on:
+      - docker-build
+    when:
+      branch:
+        - main
+
+# Define volumes for caching
+volumes:
+  - name: node-cache
+    host:
+      path: /tmp/drone-cache
+
+# Trigger conditions
+trigger:
+  branch:
+    - main
+    - develop
+  event:
+    - push
+    - pull_request
+
+---
+# Optional: Define secrets in your Drone settings
+# These secrets should be configured in your Drone UI:
+# - docker_username
+# - docker_password
+# - nas_host
+# - nas_username
+# - nas_ssh_key
+# - coreAPIToken (your Basic auth token for API calls)
