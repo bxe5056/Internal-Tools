@@ -374,7 +374,7 @@ function WebhookTool() {
       const response = await fetch(webhookUrl, {
         method: 'GET',
         headers: {
-          'Authorization': process.env.coreAPIToken
+          'Authorization': process.env.coreAPIToken || ''
         }
       })
 
