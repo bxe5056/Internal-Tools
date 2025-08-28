@@ -32,7 +32,7 @@ steps:
   - name: docker-build
     image: plugins/docker
     settings:
-      repo: bentheitguy/internal-tools
+      repo: bxe5056/internal-tools
       tags:
         - latest
         - ${DRONE_COMMIT_SHA:0:8}
@@ -89,7 +89,7 @@ trigger:
 
 # Required: Define secrets in your Drone settings
 # These secrets should be configured in your Drone UI:
-# - docker_username (your Docker Hub username: bentheitguy)
+# - docker_username (your Docker Hub username: bxe5056)
 # - docker_token (your Docker Hub Personal Access Token)
 # - nas_host
 # - nas_username

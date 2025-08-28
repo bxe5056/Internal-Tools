@@ -23,8 +23,8 @@ This document provides instructions for deploying your TanStack Start applicatio
 Configure these secrets in your Drone CI dashboard (`Settings > Secrets`):
 
 ```bash
-# Docker Hub credentials (required for pushing to bentheitguy/internal-tools)
-docker_username: bentheitguy
+# Docker Hub credentials (required for pushing to bxe5056/internal-tools)
+docker_username: bxe5056
 docker_token: your-docker-hub-personal-access-token
 
 # NAS deployment credentials (for SSH deployment)
@@ -98,9 +98,9 @@ If you prefer manual deployment without the SSH step:
 
 1. Build and push the image manually:
 ```bash
-docker build -t bentheitguy/internal-tools .
-docker tag bentheitguy/internal-tools your-registry/bentheitguy/internal-tools:latest
-docker push your-registry/bentheitguy/internal-tools:latest
+docker build -t bxe5056/internal-tools .
+docker tag bxe5056/internal-tools your-registry/bxe5056/internal-tools:latest
+docker push your-registry/bxe5056/internal-tools:latest
 ```
 
 2. On your NAS:

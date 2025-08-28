@@ -28,7 +28,7 @@ In Unraid Docker tab, click **Add Container**:
 **Basic Settings:**
 ```
 Name: internal-tools
-Repository: bentheitguy/internal-tools:latest
+Repository: bxe5056/internal-tools:latest
 Network Type: bridge
 Port Mappings: 3000 → 3000 (TCP)
 ```
@@ -54,7 +54,7 @@ Extra Parameters: --health-cmd="node -e \"require('http').get('http://localhost:
 2. **Click "Update" button** when available
 3. **Or manually pull new image:**
    ```bash
-   docker pull bentheitguy/internal-tools:latest
+   docker pull bxe5056/internal-tools:latest
    docker stop internal-tools
    docker rm internal-tools
    # Then recreate via Unraid Docker tab
@@ -145,7 +145,7 @@ docker network create internal-tools-net
 **Via Command Line:**
 ```bash
 # Pull latest image
-docker pull bentheitguy/internal-tools:latest
+docker pull bxe5056/internal-tools:latest
 
 # For template setup:
 # Just click "Update" in Unraid Docker tab
@@ -209,12 +209,12 @@ docker inspect internal-tools | grep -A5 Health
 
 2. **Manually check for new images:**
    ```bash
-   docker pull bentheitguy/internal-tools:latest
+   docker pull bxe5056/internal-tools:latest
    ```
 
 3. **Verify your image registry:**
    ```bash
-   docker images | grep bentheitguy/internal-tools
+   docker images | grep bxe5056/internal-tools
    ```
 
 ### Permission Issues
