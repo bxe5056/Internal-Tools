@@ -94,8 +94,23 @@ steps:
         # Stop existing container if it exists (either name)
         - docker stop JobsPrintManager || docker stop internal-tools || true
         - docker rm JobsPrintManager || docker rm internal-tools || true
-        # Start with docker compose (newer syntax)
-        - docker compose -f unraid-docker-compose.yml up -d
+        # Start new container with raw docker command (no compose needed)
+        - |
+          docker run -d \
+            --name JobsPrintManager \
+            --network bridge \
+            --restart unless-stopped \
+            -p 89:3000 \
+            -e NODE_ENV=production \
+            -e PORT=3000 \
+            -e coreAPIToken="$CORE_API_TOKEN" \
+            --env-file /mnt/user/appdata/internal-tools/.env \
+            --health-cmd="node -e \"require('http').get('http://localhost:3000/', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })\"" \
+            --health-interval=30s \
+            --health-timeout=10s \
+            --health-retries=3 \
+            --health-start-period=40s \
+            bxe5056/internal-tools:latest
         # Clean up old images to save space
         - docker image prune -f
     environment:
