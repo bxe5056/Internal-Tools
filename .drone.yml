@@ -38,7 +38,7 @@ steps:
   - name: docker-build
     image: plugins/docker
     settings:
-      repo: internal-tools
+      repo: bentheitguy/internal-tools
       tags:
         - latest
         - ${DRONE_COMMIT_SHA:0:8}

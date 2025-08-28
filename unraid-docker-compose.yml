@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   internal-tools:
-    image: internal-tools:latest
+    image: bentheitguy/internal-tools:latest
     container_name: internal-tools
     ports:
       - "3000:3000"

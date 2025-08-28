@@ -96,9 +96,9 @@ If you prefer manual deployment without the SSH step:
 
 1. Build and push the image manually:
 ```bash
-docker build -t internal-tools .
-docker tag internal-tools your-registry/internal-tools:latest
-docker push your-registry/internal-tools:latest
+docker build -t bentheitguy/internal-tools .
+docker tag bentheitguy/internal-tools your-registry/bentheitguy/internal-tools:latest
+docker push your-registry/bentheitguy/internal-tools:latest
 ```
 
 2. On your NAS:
