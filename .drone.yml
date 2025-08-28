@@ -98,7 +98,6 @@ trigger:
     - push
     - pull_request
 
----
 # Optional: Define secrets in your Drone settings
 # These secrets should be configured in your Drone UI:
 # - docker_username
