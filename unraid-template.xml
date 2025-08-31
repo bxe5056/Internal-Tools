@@ -57,10 +57,16 @@
       <Name>coreAPIToken</Name>
       <Mode/>
     </Variable>
+    <Variable>
+      <Value></Value>
+      <Name>appPassword</Name>
+      <Mode/>
+    </Variable>
   </Environment>
   <Labels/>
   <Config Name="WebUI Port" Target="3000" Default="3000" Mode="tcp" Description="Port for accessing the web interface" Type="Port" Display="always" Required="true" Mask="false"/>
   <Config Name="Node Environment" Target="NODE_ENV" Default="production" Mode="" Description="Node.js environment mode" Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="Application Port" Target="PORT" Default="3000" Mode="" Description="Internal application port" Type="Variable" Display="always" Required="true" Mask="false"/>
   <Config Name="Core API Token" Target="coreAPIToken" Default="" Mode="" Description="Basic auth token for API authentication - KEEP PRIVATE!" Type="Variable" Display="always" Required="true" Mask="true"/>
+  <Config Name="Application Password" Target="appPassword" Default="" Mode="" Description="Application password for authentication - KEEP PRIVATE!" Type="Variable" Display="always" Required="true" Mask="true"/>
 </Container>

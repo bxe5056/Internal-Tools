@@ -76,7 +76,8 @@ cd /mnt/user/appdata/internal-tools
 
 ```bash
 # Create secure .env file
-echo "CORE_API_TOKEN=your_actual_token_here" > .env
+echo "APP_PASSWORD=your_actual_token_here" > .env
+echo "CORE_API_TOKEN=your_actual_token_here" >> .env
 chmod 600 .env
 ```
 

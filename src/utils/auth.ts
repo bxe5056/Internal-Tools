@@ -11,7 +11,7 @@ const SALT = 'internal-tools-salt-2024'
 
 // Get current password from environment
 function getCurrentPassword(): string {
-  const envPassword = process.env.APP_PASSWORD
+  const envPassword = process.env.appPassword
   console.log('🔐 Environment check:', {
     APP_PASSWORD: envPassword ? `${envPassword.substring(0, 3)}...` : 'NOT SET',
     APP_PASSWORD_LENGTH: envPassword ? envPassword.length : 0,
