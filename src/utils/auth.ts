@@ -14,8 +14,17 @@ function getCurrentPassword(): string {
   const envPassword = process.env.APP_PASSWORD
   console.log('🔐 Environment check:', {
     APP_PASSWORD: envPassword ? `${envPassword.substring(0, 3)}...` : 'NOT SET',
+    APP_PASSWORD_LENGTH: envPassword ? envPassword.length : 0,
+    APP_PASSWORD_TYPE: typeof envPassword,
+    APP_PASSWORD_RAW: JSON.stringify(envPassword),
     NODE_ENV: process.env.NODE_ENV,
-    allEnvVars: Object.keys(process.env).filter(key => key.includes('PASSWORD') || key.includes('APP'))
+    allEnvVars: Object.keys(process.env).filter(key => key.includes('PASSWORD') || key.includes('APP')),
+    allEnvValues: Object.entries(process.env)
+      .filter(([key]) => key.includes('PASSWORD') || key.includes('APP'))
+      .reduce((acc, [key, value]) => {
+        acc[key] = value ? `${value.substring(0, 3)}...` : 'EMPTY';
+        return acc;
+      }, {} as Record<string, string>)
   })
   
   if (!envPassword) {

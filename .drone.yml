@@ -76,6 +76,7 @@ steps:
         - cd /mnt/user/appdata/internal-tools
         # Create/update environment file
         - echo "CORE_API_TOKEN=$CORE_API_TOKEN" > .env
+        - echo "APP_PASSWORD=$APP_PASSWORD" >> .env
         - chmod 600 .env
         - chown nobody:users .env
         # Download/update the unraid-docker-compose.yml file
