@@ -88,9 +88,10 @@ export function recordSuccessfulAttempt(ip: string): void {
   ipAttempts.delete(ip)
 }
 
-export function verifyPassword(inputPassword: string): boolean {
+export async function verifyPassword(inputPassword: string): Promise<boolean> {
   const currentPassword = getCurrentPassword()
-  return verifyPasswordHash(inputPassword, SALT, createPasswordHash(currentPassword, SALT))
+  const currentPasswordHash = await createPasswordHash(currentPassword, SALT)
+  return verifyPasswordHash(inputPassword, SALT, currentPasswordHash)
 }
 
 export function getRemainingAttempts(ip: string): number {

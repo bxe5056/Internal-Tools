@@ -22,7 +22,7 @@ export const ServerRoute = createServerFileRoute('/api/login').methods({
       }
       
       // Verify password
-      if (verifyPassword(password)) {
+      if (await verifyPassword(password)) {
         // Success - reset attempts and set session
         recordSuccessfulAttempt(clientIP)
         
