@@ -113,11 +113,11 @@ docker compose up -d
 
 ### Password Protection Configuration
 
-**Important**: Your application now includes password protection. You must set the `APP_PASSWORD` environment variable:
+**Important**: Your application now includes password protection. You must set the `appPassword` environment variable:
 
 ```bash
 # Set this in your .env file or Drone CI secrets
-APP_PASSWORD=your_secure_password_here
+appPassword=your_secure_password_here
 ```
 
 ### Secure Environment Variable Handling
@@ -137,7 +137,7 @@ The application automatically loads these environment variables:
 environment:
   - NODE_ENV=production
   - PORT=3000
-  - APP_PASSWORD=${APP_PASSWORD}  # Password for app access
+  - APP_PASSWORD=${appPassword}  # Password for app access
   - coreAPIToken=${CORE_API_TOKEN}  # Loaded from .env file
 ```
 
@@ -147,7 +147,7 @@ If you're not using the Drone CI pipeline, you can manually create a `.env` file
 
 ```bash
 # Create .env file in your deployment directory
-echo "APP_PASSWORD=your_secure_password_here" > .env
+echo "appPassword=your_secure_password_here" > .env
 echo "CORE_API_TOKEN=your_actual_basic_auth_token_here" >> .env
 
 # Ensure proper permissions (readable only by owner)
@@ -178,11 +178,11 @@ chmod 600 .env
 - Ensure Docker and Docker Compose are installed on NAS
 
 ### Environment Variable Issues
-- **Password not working**: Verify `APP_PASSWORD` is set correctly in your environment
+- **Password not working**: Verify `appPassword` is set correctly in your environment
 - **Token not working**: Verify `coreAPIToken` secret is set correctly in Drone CI
 - **Container fails to start**: Check `.env` file exists and has correct permissions
 - **API calls failing**: Verify the token format matches what your API expects
-- **Local development**: Create a local `.env` file with `APP_PASSWORD=your_password` and `CORE_API_TOKEN=your_token`
+- **Local development**: Create a local `.env` file with `appPassword=your_password` and `CORE_API_TOKEN=your_token`
 
 ## Health Check
 
