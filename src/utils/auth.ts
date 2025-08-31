@@ -1,12 +1,35 @@
 import { z } from 'zod'
+import { verifyPasswordHash, createPasswordHash } from './passwordHash'
 
 // In-memory storage for IP bans and attempts
 // In production, you'd want to use Redis or a database
 const ipAttempts = new Map<string, { attempts: number; lastAttempt: number; banned: boolean }>()
 const MAX_ATTEMPTS = 5
 
+// Generate a consistent salt for the same password
+const SALT = 'internal-tools-salt-2024'
+
+// Get current password from environment
+function getCurrentPassword(): string {
+  const envPassword = process.env.APP_PASSWORD
+  console.log('🔐 Environment check:', {
+    APP_PASSWORD: envPassword ? `${envPassword.substring(0, 3)}...` : 'NOT SET',
+    NODE_ENV: process.env.NODE_ENV,
+    allEnvVars: Object.keys(process.env).filter(key => key.includes('PASSWORD') || key.includes('APP'))
+  })
+  
+  if (!envPassword) {
+    console.log('⚠️  APP_PASSWORD not found in environment')
+    throw new Error('APP_PASSWORD environment variable is required')
+  }
+  
+  return envPassword
+}
+
 export const loginSchema = z.object({
   password: z.string().min(1, 'Password is required'),
+  salt: z.string().optional(),
+  hashedPassword: z.string().optional(),
 })
 
 export function getClientIP(request: Request): string {
@@ -57,8 +80,8 @@ export function recordSuccessfulAttempt(ip: string): void {
 }
 
 export function verifyPassword(inputPassword: string): boolean {
-  const correctPassword = process.env.APP_PASSWORD || 'BANANANA'
-  return inputPassword === correctPassword
+  const currentPassword = getCurrentPassword()
+  return verifyPasswordHash(inputPassword, SALT, createPasswordHash(currentPassword, SALT))
 }
 
 export function getRemainingAttempts(ip: string): number {

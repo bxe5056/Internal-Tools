@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { hashPassword, generateSalt } from '~/utils/passwordHash'
 
 interface PasswordProtectionProps {
   onAuthenticated: () => void
@@ -42,13 +43,21 @@ export function PasswordProtection({ onAuthenticated }: PasswordProtectionProps)
     setError('')
 
     try {
+      // Generate salt and hash password
+      const salt = generateSalt()
+      const hashedPassword = await hashPassword(password, salt)
+
       const response = await fetch('/api/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         credentials: 'include',
-        body: JSON.stringify({ password }),
+        body: JSON.stringify({ 
+          password,
+          salt,
+          hashedPassword 
+        }),
       })
 
       if (response.ok) {
