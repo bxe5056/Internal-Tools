@@ -644,11 +644,12 @@ function WebhookTool() {
     setIsSubmittingPrint(true)
     setError(null)
 
-         try {
-       // Check if a job with this URL already exists (using normalized URL matching)
-       const normalizedUrl = normalizeUrl(url)
-       const existingJob = printJobs.find(job => normalizeUrl(job.url) === normalizedUrl)
-       let newJobId: string | undefined
+    // Check if a job with this URL already exists (using normalized URL matching)
+    const normalizedUrl = normalizeUrl(url)
+    const existingJob = printJobs.find(job => normalizeUrl(job.url) === normalizedUrl)
+    let newJobId: string | undefined
+
+    try {
        
        if (existingJob) {
          // Update existing job instead of creating a new one
@@ -766,7 +767,15 @@ function WebhookTool() {
       
       // Remove the failed job from state
       if (newJobId) {
+        // Remove the newly created job if it failed
         setPrintJobs(prev => prev.filter(job => job.id !== newJobId))
+      } else if (existingJob) {
+        // If we were updating an existing job, revert the status change
+        setPrintJobs(prev => prev.map(job => 
+          job.id === existingJob.id 
+            ? { ...job, jobStatus: job.jobStatus === 'pending' ? 'error' : job.jobStatus }
+            : job
+        ))
       }
     } finally {
       setIsSubmittingPrint(false)
