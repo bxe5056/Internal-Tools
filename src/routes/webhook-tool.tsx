@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 
 // ExpandableText component for in-place text expansion
 interface ExpandableTextProps {
@@ -33,6 +33,7 @@ function ExpandableText({ text, maxLength, className = '', buttonClassName = '' 
 
 interface PrintJob {
   id: string
+  originalId?: string // For imported jobs to track original ID
   url: string
   status: 'Applied' | 'Researching'
   submittedAt: Date
@@ -75,6 +76,12 @@ export const Route = createFileRoute('/webhook-tool')({
 })
 
 function WebhookTool() {
+  // Generate unique IDs to prevent React key conflicts
+  const idCounter = useRef(0)
+  const generateUniqueId = () => {
+    idCounter.current += 1
+    return `${Date.now()}-${idCounter.current}-${Math.random().toString(36).substr(2, 9)}`
+  }
   const [url, setUrl] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
@@ -578,7 +585,7 @@ function WebhookTool() {
 
     // Create immediate job card with loading state
     const newJob: PrintJob = {
-      id: Date.now().toString(),
+      id: generateUniqueId(),
       url: url.trim(),
       status: status,
       submittedAt: new Date(),
@@ -664,8 +671,8 @@ function WebhookTool() {
              : job
          ))
        } else {
-        // Create new job with loading state
-         newJobId = Date.now().toString()
+                 // Create new job with loading state
+         newJobId = generateUniqueId()
          const newJob: PrintJob = {
            id: newJobId,
            url: url.trim(),
@@ -758,7 +765,9 @@ function WebhookTool() {
       showToastNotification(errorMessage, 'error')
       
       // Remove the failed job from state
-      setPrintJobs(prev => prev.filter(job => job.id !== Date.now().toString()))
+      if (newJobId) {
+        setPrintJobs(prev => prev.filter(job => job.id !== newJobId))
+      }
     } finally {
       setIsSubmittingPrint(false)
     }
@@ -1070,7 +1079,8 @@ function WebhookTool() {
       
       // Convert the object-based API response to array format
       const importedJobs = Object.entries(parsedData).map(([jobId, jobInfo]: [string, any]) => ({
-        id: jobId,
+        id: generateUniqueId(), // Generate unique ID to prevent conflicts
+        originalId: jobId, // Keep original ID for reference
         url: jobInfo.data?.url || '',
         status: jobInfo.data?.status || 'Researching',
         submittedAt: new Date(jobInfo.data?.date || Date.now()),
@@ -1663,7 +1673,7 @@ function WebhookTool() {
                   <div className="space-y-4">
                     {filteredJobs.map((job, index) => (
                       <div 
-                        key={job.id} 
+                        key={`${job.id}-${index}`} 
                         className={`rounded-xl shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden animate-slideIn ${
                           jobToRemove === job.id 
                             ? 'bg-red-50 border-2 border-red-300 ring-2 ring-red-200' 

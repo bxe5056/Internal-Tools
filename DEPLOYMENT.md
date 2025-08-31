@@ -111,9 +111,18 @@ docker compose up -d
 
 ## Environment Variables & Security
 
+### Password Protection Configuration
+
+**Important**: Your application now includes password protection. You must set the `APP_PASSWORD` environment variable:
+
+```bash
+# Set this in your .env file or Drone CI secrets
+APP_PASSWORD=your_secure_password_here
+```
+
 ### Secure Environment Variable Handling
 
-Your application uses sensitive environment variables like `coreAPIToken`. The deployment is configured to handle these securely:
+Your application uses sensitive environment variables like `coreAPIToken` and `APP_PASSWORD`. The deployment is configured to handle these securely:
 
 1. **In Drone CI**: Secrets are stored in Drone's secret management system
 2. **During Deployment**: Secrets are written to a `.env` file on your NAS (never committed to git)
@@ -128,6 +137,7 @@ The application automatically loads these environment variables:
 environment:
   - NODE_ENV=production
   - PORT=3000
+  - APP_PASSWORD=${APP_PASSWORD}  # Password for app access
   - coreAPIToken=${CORE_API_TOKEN}  # Loaded from .env file
 ```
 
@@ -137,7 +147,8 @@ If you're not using the Drone CI pipeline, you can manually create a `.env` file
 
 ```bash
 # Create .env file in your deployment directory
-echo "CORE_API_TOKEN=your_actual_basic_auth_token_here" > .env
+echo "APP_PASSWORD=your_secure_password_here" > .env
+echo "CORE_API_TOKEN=your_actual_basic_auth_token_here" >> .env
 
 # Ensure proper permissions (readable only by owner)
 chmod 600 .env
@@ -167,10 +178,11 @@ chmod 600 .env
 - Ensure Docker and Docker Compose are installed on NAS
 
 ### Environment Variable Issues
+- **Password not working**: Verify `APP_PASSWORD` is set correctly in your environment
 - **Token not working**: Verify `coreAPIToken` secret is set correctly in Drone CI
 - **Container fails to start**: Check `.env` file exists and has correct permissions
 - **API calls failing**: Verify the token format matches what your API expects
-- **Local development**: Create a local `.env` file with `CORE_API_TOKEN=your_token`
+- **Local development**: Create a local `.env` file with `APP_PASSWORD=your_password` and `CORE_API_TOKEN=your_token`
 
 ## Health Check
 

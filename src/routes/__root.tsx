@@ -9,6 +9,7 @@ import { TanStackRouterDevtools } from '@tanstack/react-router-devtools'
 import * as React from 'react'
 import { DefaultCatchBoundary } from '~/components/DefaultCatchBoundary'
 import { NotFound } from '~/components/NotFound'
+import { ProtectedRoute } from '~/components/ProtectedRoute'
 import appCss from '~/styles/app.css?url'
 import { seo } from '~/utils/seo'
 
@@ -101,12 +102,15 @@ function RootDocument({ children }: { children: React.ReactNode }) {
                     Tools
                   </Link>
                 </div>
+
               </div>
             </div>
           </div>
         </nav>
         <main>
-          {children}
+          <ProtectedRoute>
+            {children}
+          </ProtectedRoute>
         </main>
         <TanStackRouterDevtools position="bottom-right" />
         <Scripts />

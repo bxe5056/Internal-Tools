@@ -2,6 +2,7 @@ import { createServerFileRoute } from '@tanstack/react-start/server'
 import { getRequestHeaders } from '@tanstack/react-start/server'
 import { createMiddleware, json } from '@tanstack/react-start'
 import type { User } from '~/utils/users'
+import { authMiddleware } from '~/utils/authMiddleware'
 
 const userLoggerMiddleware = createMiddleware({ type: 'request' }).server(
   async ({ next, request }) => {
@@ -43,7 +44,7 @@ const testMiddleware = createMiddleware({ type: 'request' })
   })
 
 export const ServerRoute = createServerFileRoute('/api/users')
-  .middleware([testMiddleware, userLoggerMiddleware, testParentMiddleware])
+  .middleware([authMiddleware, testMiddleware, userLoggerMiddleware, testParentMiddleware])
   .methods({
     GET: async ({ request }) => {
       console.info('GET /api/users @', request.url)

@@ -12,6 +12,7 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=3000
+      - APP_PASSWORD=${APP_PASSWORD}
       - coreAPIToken=${CORE_API_TOKEN}
       - N8N_API_KEY=${N8N_API_KEY}
     env_file:

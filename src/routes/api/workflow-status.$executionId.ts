@@ -1,7 +1,10 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
 import { json } from '@tanstack/react-start'
+import { authMiddleware } from '~/utils/authMiddleware'
 
-export const ServerRoute = createServerFileRoute('/api/workflow-status/$executionId').methods({
+export const ServerRoute = createServerFileRoute('/api/workflow-status/$executionId')
+  .middleware([authMiddleware])
+  .methods({
   GET: async ({ request, params }) => {
     try {
       const { executionId } = params

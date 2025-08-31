@@ -1,7 +1,10 @@
 import { createServerFileRoute } from '@tanstack/react-start/server'
 import { json } from '@tanstack/react-start'
+import { authMiddleware } from '~/utils/authMiddleware'
 
-export const ServerRoute = createServerFileRoute('/api/webhook').methods({
+export const ServerRoute = createServerFileRoute('/api/webhook')
+  .middleware([authMiddleware])
+  .methods({
   POST: async ({ request }) => {
     try {
       const body = await request.json()

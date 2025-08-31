@@ -1,12 +1,43 @@
-# Welcome to TanStack.com!
+# Internal Tools Dashboard
 
-This site is built with TanStack Router!
+A collection of utilities and tools to streamline internal operations and workflows.
 
-- [TanStack Router Docs](https://tanstack.com/router)
+## Features
 
-It's deployed automagically with Netlify!
+- **Password Protection**: Secure access control with IP-based rate limiting
+- **Webhook Tools**: Utilities for webhook management and testing
+- **User Management**: Tools for user administration and monitoring
+- **Modern UI**: Built with React, TanStack Router, and Tailwind CSS
 
-- [Netlify](https://netlify.com/)
+## Security
+
+This application is protected by a password system that:
+- Requires authentication for all routes
+- Bans IPs after 5 failed password attempts (24-hour ban)
+- Remembers authenticated browsers to avoid repeated logins
+- Uses secure HTTP-only cookies for session management
+
+See [PASSWORD-PROTECTION.md](./PASSWORD-PROTECTION.md) for detailed security information.
+
+## Development
+
+From your terminal:
+
+```sh
+pnpm install
+pnpm dev
+```
+
+This starts your app in development mode, rebuilding assets on file changes.
+
+## Deployment
+
+The application is configured for deployment with:
+- Docker support (`Dockerfile`, `docker-compose.yml`)
+- Unraid deployment (`unraid-docker-compose.yml`, `unraid-template.xml`)
+- Environment-based configuration
+
+See [DEPLOYMENT.md](./DEPLOYMENT.md) and [UNRAID-SETUP.md](./UNRAID-SETUP.md) for deployment instructions.
 
 ## Development
 
