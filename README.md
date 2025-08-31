@@ -17,8 +17,6 @@ This application is protected by a password system that:
 - Remembers authenticated browsers to avoid repeated logins
 - Uses secure HTTP-only cookies for session management
 
-See [PASSWORD-PROTECTION.md](./PASSWORD-PROTECTION.md) for detailed security information.
-
 ## Development
 
 From your terminal:
