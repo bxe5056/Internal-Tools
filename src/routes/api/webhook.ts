@@ -8,7 +8,7 @@ export const ServerRoute = createServerFileRoute('/api/webhook')
   POST: async ({ request }) => {
     try {
       const body = await request.json()
-      const { url, status } = body
+      const { url, status, source } = body
 
       if (!url || !status) {
         return json({ error: 'URL and status are required' }, { status: 400 })
@@ -23,11 +23,12 @@ export const ServerRoute = createServerFileRoute('/api/webhook')
       // Encode the URL for the query parameter
       const encodedUrl = encodeURIComponent(url)
       
-      // Construct the webhook URL with status parameter
-      const webhookUrl = `https://core.bentheitguy.me/webhook/7dcd87be-7479-401f-8ed6-e97bf2bf58e8?url=${encodedUrl}&status=${status}`
+      // Construct the webhook URL with status and source parameters
+      const webhookUrl = `https://core.bentheitguy.me/webhook/7dcd87be-7479-401f-8ed6-e97bf2bf58e8?url=${encodedUrl}&status=${status}${source ? `&source=${encodeURIComponent(source)}` : ''}`
       
       console.log('Server-side webhook call:', {
         webhookUrl,
+        source,
         hasAuthToken: !!authToken,
         authTokenStart: authToken.substring(0, 10)
       })

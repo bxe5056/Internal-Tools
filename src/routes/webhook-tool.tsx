@@ -36,6 +36,7 @@ interface PrintJob {
   originalId?: string // For imported jobs to track original ID
   url: string
   status: 'Applied' | 'Researching'
+  source?: string // Job source (Jobright, LinkedIn, etc.)
   submittedAt: Date
   lastUpdated: Date
   error?: string
@@ -76,6 +77,25 @@ export const Route = createFileRoute('/webhook-tool')({
 })
 
 function WebhookTool() {
+  // Source options for the dropdown
+  const sourceOptions = [
+    'Jobright',
+    'LinkedIn', 
+    'Indeed',
+    'Sonara',
+    'Referral',
+    'SimplifyJobs',
+    'BuiltIn',
+    'SkipTheDrive.com',
+    'Y Combinator',
+    'Email',
+    'ColdEmailRec\'vd',
+    'IncomingEmail',
+    'Other',
+    'Welcome to the Jungle',
+    'Direct'
+  ]
+
   // Generate unique IDs to prevent React key conflicts
   const idCounter = useRef(0)
   const generateUniqueId = () => {
@@ -83,6 +103,7 @@ function WebhookTool() {
     return `${Date.now()}-${idCounter.current}-${Math.random().toString(36).substr(2, 9)}`
   }
   const [url, setUrl] = useState('')
+  const [source, setSource] = useState('Jobright') // Default to first option
   const [isLoading, setIsLoading] = useState(false)
   const [result, setResult] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -588,6 +609,7 @@ function WebhookTool() {
       id: generateUniqueId(),
       url: url.trim(),
       status: status,
+      source: source,
       submittedAt: new Date(),
       lastUpdated: new Date(),
       jobStatus: 'pending',
@@ -604,7 +626,8 @@ function WebhookTool() {
         },
         body: JSON.stringify({
           url: url.trim(),
-          status: status
+          status: status,
+          source: source
         })
       })
 
@@ -1274,6 +1297,28 @@ function WebhookTool() {
                     </svg>
                     Research
                   </button>
+                </div>
+                
+                {/* Source Dropdown */}
+                <div className="flex items-center justify-center mt-4">
+                  <div className="flex items-center gap-3">
+                    <label htmlFor="source-select" className="text-sm font-medium text-gray-700">
+                      Source:
+                    </label>
+                    <select
+                      id="source-select"
+                      value={source}
+                      onChange={(e) => setSource(e.target.value)}
+                      disabled={isLoading}
+                      className="px-3 py-2 text-sm font-medium bg-white border-2 border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-100 focus:border-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-colors min-w-[160px]"
+                    >
+                      {sourceOptions.map((option) => (
+                        <option key={option} value={option}>
+                          {option}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               </div>
 
